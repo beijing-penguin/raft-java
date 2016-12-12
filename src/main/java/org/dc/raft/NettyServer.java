@@ -1,6 +1,7 @@
 package org.dc.raft;
 
 import java.net.InetAddress;
+import java.util.concurrent.TimeUnit;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -19,6 +20,9 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
+import io.netty.handler.timeout.IdleState;
+import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyServer {
 	private static int port = 3000;
@@ -33,15 +37,42 @@ public class NettyServer {
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			e.printStackTrace();
+			bossGroup.shutdownGracefully();
+			workerGroup.shutdownGracefully();
 		}
 	}
 }
 class ChildChannelHandler extends ChannelInitializer<SocketChannel>{
 
 	@Override
-	protected void initChannel(SocketChannel arg0) throws Exception {
-		arg0.pipeline().addLast(new TimeServerHandler());
+	protected void initChannel(SocketChannel ch) throws Exception {
+		ch.config().setAllowHalfClosure(false);
+		//arg0.pipeline().addLast(new TimeServerHandler());
+		ChannelPipeline pipeline = ch.pipeline();
+        pipeline.addLast("ping", new IdleStateHandler(60, 15, 13,
+                TimeUnit.SECONDS));
+        // 以("\n")为结尾分割的 解码器
+        pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192,
+                Delimiters.lineDelimiter()));
+        // 字符串解码 和 编码
+        pipeline.addLast("decoder", new StringDecoder());
+        pipeline.addLast("encoder", new StringEncoder());
+        // 自己的逻辑Handler
+        pipeline.addLast("handler", new ServerHandler());
 	}
+
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+		System.out.println("ChildChannelHandler.exceptionCaught()");
+		super.exceptionCaught(ctx, cause);
+	}
+
+	@Override
+	public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+		System.out.println("ChildChannelHandler.userEventTriggered()");
+		super.userEventTriggered(ctx, evt);
+	}
+	
 	
 }
 class TimeServerHandler extends ChannelInitializer<SocketChannel>{
@@ -66,6 +97,8 @@ class TimeServerHandler extends ChannelInitializer<SocketChannel>{
 		// 字符串解码 和 编码
 		pipeline.addLast( new StringDecoder());
 		pipeline.addLast( new StringEncoder());
+		//空闲时间，
+		pipeline.addLast("ping", new IdleStateHandler(25, 15, 10,TimeUnit.SECONDS));
 
 		// 自己的逻辑Handler
 		pipeline.addLast( new HelloServerHandler());
@@ -100,4 +133,33 @@ class HelloServerHandler extends SimpleChannelInboundHandler<String> {
 
 		super.channelActive(ctx);
 	}
+}
+class ServerHandler extends SimpleChannelInboundHandler<String> {
+	 
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+        System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
+        if (!"OK".equals(msg)) {
+            //业务逻辑
+        }
+    }
+ 
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof IdleStateEvent) {
+            IdleStateEvent event = (IdleStateEvent) evt;
+            if (event.state().equals(IdleState.READER_IDLE)) {
+                System.out.println("READER_IDLE");
+                // 超时关闭channel
+                ctx.close();
+            } else if (event.state().equals(IdleState.WRITER_IDLE)) {
+                System.out.println("WRITER_IDLE");
+            } else if (event.state().equals(IdleState.ALL_IDLE)) {
+                System.out.println("ALL_IDLE");
+                // 发送心跳
+                ctx.channel().writeAndFlush("ping\n");
+            }
+        }
+        super.userEventTriggered(ctx, evt); 
+    }
 }

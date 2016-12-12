@@ -22,24 +22,25 @@ public class NettyClient {
 	private static EventLoopGroup group = new NioEventLoopGroup();
 	private static Channel ch;
 	public static void main(String[] args) {
-		
+
 		try{
 			Bootstrap b = new Bootstrap();
 			b.group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
 			.handler(new HelloClientInitializer());
 			ch = b.connect(host, port).sync().channel();
-			for (int i = 0; i < 10000; i++) {
+			ch.writeAndFlush("你好" + "\r\n");
+			for (int i = 0; i < 1; i++) {
 				new Thread(new Runnable() {
-					
+
 					public void run() {
 						ch.writeAndFlush("你好" + "\r\n");
 					}
 				}).start();
 			}
-			
+			//group.shutdownGracefully();
 		}catch (Exception e) {
 			e.printStackTrace();
-			ch.close();
+			//ch.close();
 			group.shutdownGracefully();
 		}
 	}
@@ -48,28 +49,43 @@ class HelloClientInitializer extends ChannelInitializer<SocketChannel> {
 
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
-		ChannelPipeline pipeline = ch.pipeline();
+		/*ChannelPipeline pipeline = ch.pipeline();
 
-		/*
+
 		 * 这个地方的 必须和服务端对应上。否则无法正常解码和编码
 		 * 
 		 * 解码和编码 我将会在下一张为大家详细的讲解。再次暂时不做详细的描述
 		 * 
-		 * */
+		 * 
 		pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
 		pipeline.addLast( new StringDecoder());
 		pipeline.addLast( new StringEncoder());
 
 		// 客户端的逻辑
-		pipeline.addLast(new HelloClientHandler());
+		pipeline.addLast(new HelloClientHandler());*/
+		ChannelPipeline pipeline = ch.pipeline();
+
+		pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192,
+				Delimiters.lineDelimiter()));
+		pipeline.addLast("decoder", new StringDecoder());
+		pipeline.addLast("encoder", new StringEncoder());
+
+		// 客户端的逻辑
+		pipeline.addLast("handler", new ClientHandler());
 	}
 }
-class HelloClientHandler extends SimpleChannelInboundHandler<String> {
+class ClientHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+		System.out.println("Server say : " + msg);
 
-		//System.out.println("Server say : " + msg);
+		if ("ping".equals(msg)) {
+			System.out.println("ping");
+			ctx.channel().writeAndFlush("OK\n");
+		} else {
+			//业务逻辑
+		}
 	}
 
 	@Override
