@@ -1,4 +1,16 @@
-package org.dc.raft;
+package org.dc.penguin;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.dc.penguin.entity.ChannelInfo;
+import org.dc.penguin.entity.Message;
+
+import com.alibaba.fastjson.JSON;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -17,56 +29,76 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
 public class NettyClient {
-	private static int port = 3000;
-	private static String host = "localhost";
-	private static EventLoopGroup group = new NioEventLoopGroup();
-	private static Channel ch;
-	public static void main(String[] args) {
+	public static ThreadLocal<Message> RESULT = new ThreadLocal<Message>();
+	private static Log LOG = LogFactory.getLog(NettyClient.class);
 
+	private List<ChannelInfo> channelList = new ArrayList<ChannelInfo>();
+
+	public NettyClient(String...hostAndPort){
+		EventLoopGroup group = new NioEventLoopGroup();
 		try{
-			Bootstrap b = new Bootstrap();
-			b.group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
-			.handler(new HelloClientInitializer());
-			ch = b.connect(host, port).sync().channel();
-			ch.writeAndFlush("你好" + "\r\n");
-			for (int i = 0; i < 1; i++) {
-				new Thread(new Runnable() {
+			for (int i = 0; i < hostAndPort.length; i++) {
 
-					public void run() {
-						ch.writeAndFlush("你好" + "\r\n");
-					}
-				}).start();
+				Bootstrap b = new Bootstrap();
+				b.group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
+				.handler(new ClientInitializer());
+				
+				String host = hostAndPort[i].split(":")[0];
+				int port = Integer.parseInt(hostAndPort[i].split(":")[1]);
+
+				Channel channel = b.connect(host,Integer.parseInt(hostAndPort[i].split(":")[1])).sync().channel();
+
+				ChannelInfo chInfo = new ChannelInfo();
+				chInfo.setHost(host);
+				chInfo.setPort(port);
+				chInfo.setChannel(channel);
+
+				channelList.add(chInfo);
 			}
-			//group.shutdownGracefully();
 		}catch (Exception e) {
-			e.printStackTrace();
-			//ch.close();
 			group.shutdownGracefully();
+			LOG.info("",e);
 		}
 	}
+	
+	//选举
+	public void election(){
+		
+	}
+	public void askAll() throws Exception{
+		String body_rt = null;
+		
+		String local_ip = "";
+		for (int i = 0; i < channelList.size(); i++) {
+			ChannelInfo cinfo = channelList.get(i);
+			local_ip += cinfo.getHost()+":"+cinfo.getPort()+",";
+			Message msg = new Message();
+			msg.setMsgType(100);
+			cinfo.getChannel().writeAndFlush(JSON.toJSONString(msg));
+			Message msg_rs = RESULT.get();
+			String body = msg_rs.getBody();
+			if(body_rt == null){
+				body_rt = msg_rs.getBody();
+			}else{
+				if(!body_rt.equals(body)){
+					throw new Exception("服务器确认异常");
+				}
+			}
+		}
+		if(local_ip.equals(body_rt)){
+			
+		}
+	}
+	
 }
-class HelloClientInitializer extends ChannelInitializer<SocketChannel> {
+class ClientInitializer extends ChannelInitializer<SocketChannel> {
 
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
-		/*ChannelPipeline pipeline = ch.pipeline();
-
-
-		 * 这个地方的 必须和服务端对应上。否则无法正常解码和编码
-		 * 
-		 * 解码和编码 我将会在下一张为大家详细的讲解。再次暂时不做详细的描述
-		 * 
-		 * 
-		pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
-		pipeline.addLast( new StringDecoder());
-		pipeline.addLast( new StringEncoder());
-
-		// 客户端的逻辑
-		pipeline.addLast(new HelloClientHandler());*/
+		ch.config().setAllowHalfClosure(true);
 		ChannelPipeline pipeline = ch.pipeline();
 
-		pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192,
-				Delimiters.lineDelimiter()));
+		pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
 		pipeline.addLast("decoder", new StringDecoder());
 		pipeline.addLast("encoder", new StringEncoder());
 
@@ -78,14 +110,15 @@ class ClientHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-		System.out.println("Server say : " + msg);
+		NettyClient.RESULT.set(JSON.parseObject(msg, Message.class));
+		/*System.out.println("Server say : " + msg);
 
 		if ("ping".equals(msg)) {
 			System.out.println("ping");
 			ctx.channel().writeAndFlush("OK\n");
 		} else {
 			//业务逻辑
-		}
+		}*/
 	}
 
 	@Override
@@ -97,6 +130,7 @@ class ClientHandler extends SimpleChannelInboundHandler<String> {
 	@Override
 	public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 		System.out.println("Client close ");
-		super.channelInactive(ctx);
+		ctx.channel().close();
+		//super.channelInactive(ctx);
 	}
 }
