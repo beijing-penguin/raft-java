@@ -1,14 +1,14 @@
 package org.dc.penguin.entity;
 
 public class Message {
-	private int msgType;//100，认证
+	private int reqType;//100，认证
 	private String body;
 	
-	public int getMsgType() {
-		return msgType;
+	public int getReqType() {
+		return reqType;
 	}
-	public void setMsgType(int msgType) {
-		this.msgType = msgType;
+	public void setReqType(int reqType) {
+		this.reqType = reqType;
 	}
 	public String getBody() {
 		return body;
@@ -16,7 +16,4 @@ public class Message {
 	public void setBody(String body) {
 		this.body = body;
 	}
-	
-	
-	
 }

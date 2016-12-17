@@ -22,13 +22,14 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyServer {
-	private static int port = 3000;
+	private static int port = 9001;
 	public static void main(String[] args) {
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		try{
 			ServerBootstrap bootstrap = new ServerBootstrap();
-			bootstrap.group(bossGroup,workerGroup).channel(NioServerSocketChannel.class)
+			bootstrap.group(bossGroup,workerGroup)
+			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childOption(ChannelOption.SO_KEEPALIVE, true)
 			.childHandler(new ChildChannelHandler());

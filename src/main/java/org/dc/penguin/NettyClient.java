@@ -1,14 +1,16 @@
 package org.dc.penguin;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.entity.ChannelInfo;
 import org.dc.penguin.entity.Message;
+import org.dc.penguin.entity.ReqType;
+import org.dc.penguin.entity.ServerInfo;
+import org.dc.penguin.entity.ServerRole;
 
 import com.alibaba.fastjson.JSON;
 
@@ -29,67 +31,99 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
 public class NettyClient {
-	public static ThreadLocal<Message> RESULT = new ThreadLocal<Message>();
+	public ThreadLocal<String> RESULT = new ThreadLocal<String>();
 	private static Log LOG = LogFactory.getLog(NettyClient.class);
+	private EventLoopGroup group = new NioEventLoopGroup();
+	private Bootstrap boot = new Bootstrap();
 
-	private List<ChannelInfo> channelList = new ArrayList<ChannelInfo>();
+	private Channel leaderChannel;
+
+	private Map<Channel,ServerInfo> channelMap = new HashMap<Channel,ServerInfo>();
 
 	public NettyClient(String...hostAndPort){
-		EventLoopGroup group = new NioEventLoopGroup();
+
 		try{
 			for (int i = 0; i < hostAndPort.length; i++) {
+				boot.group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
+				.handler(new ChannelInitializer<SocketChannel>() {
+					@Override
+					protected void initChannel(SocketChannel ch) throws Exception {
+						ch.config().setAllowHalfClosure(true);
+						ChannelPipeline pipeline = ch.pipeline();
 
-				Bootstrap b = new Bootstrap();
-				b.group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true)
-				.handler(new ClientInitializer());
-				
+						pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
+						pipeline.addLast("decoder", new StringDecoder());
+						pipeline.addLast("encoder", new StringEncoder());
+
+						// 客户端的逻辑
+						pipeline.addLast("handler", new SimpleChannelInboundHandler<String>() {
+							@Override
+							protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+								RESULT.set(JSON.parseObject(msg, Message.class).getBody());
+							}
+
+							@Override
+							public void channelActive(ChannelHandlerContext ctx) throws Exception {
+								System.out.println("Client active ");
+								super.channelActive(ctx);
+							}
+
+							@Override
+							public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+								System.out.println("Client close ");
+								ctx.channel().close();
+								//super.channelInactive(ctx);
+							}
+						});
+					}
+				});
+
 				String host = hostAndPort[i].split(":")[0];
 				int port = Integer.parseInt(hostAndPort[i].split(":")[1]);
 
-				Channel channel = b.connect(host,Integer.parseInt(hostAndPort[i].split(":")[1])).sync().channel();
+				Channel channel = boot.connect(host,Integer.parseInt(hostAndPort[i].split(":")[1])).sync().channel();
 
-				ChannelInfo chInfo = new ChannelInfo();
-				chInfo.setHost(host);
-				chInfo.setPort(port);
-				chInfo.setChannel(channel);
+				ServerInfo serverInfo = new ServerInfo();
+				serverInfo.setHost(host);
+				serverInfo.setPort(port);
+				serverInfo.setFirstConnGood(true);
+				channelMap.put(channel, serverInfo);
 
-				channelList.add(chInfo);
+				getLeaderChannel(channelMap);
 			}
 		}catch (Exception e) {
-			group.shutdownGracefully();
 			LOG.info("",e);
 		}
 	}
-	
+
 	//选举
 	public void election(){
-		
+
 	}
-	public void askAll() throws Exception{
-		String body_rt = null;
-		
-		String local_ip = "";
-		for (int i = 0; i < channelList.size(); i++) {
-			ChannelInfo cinfo = channelList.get(i);
-			local_ip += cinfo.getHost()+":"+cinfo.getPort()+",";
-			Message msg = new Message();
-			msg.setMsgType(100);
-			cinfo.getChannel().writeAndFlush(JSON.toJSONString(msg));
-			Message msg_rs = RESULT.get();
-			String body = msg_rs.getBody();
-			if(body_rt == null){
-				body_rt = msg_rs.getBody();
-			}else{
-				if(!body_rt.equals(body)){
-					throw new Exception("服务器确认异常");
+	public String sendRequest(Object message){
+		RESULT.remove();
+		leaderChannel.writeAndFlush(JSON.toJSONString(message)+"\n");
+		return RESULT.get();
+	}
+	private Channel getLeaderChannel(Map<Channel,ServerInfo> channelMap) throws Exception{
+		while(true){
+			for (Channel channel : channelMap.keySet()) {
+				Message msg = new Message();
+				msg.setReqType(ReqType.GET_LEADER.getRequestType());
+				ServerInfo serverInfo = JSON.parseObject(sendRequest(msg), ServerInfo.class);
+				if(serverInfo.getRole() == ServerRole.LEADER){
+					leaderChannel = channel;
+					break;
 				}
 			}
-		}
-		if(local_ip.equals(body_rt)){
-			
+			Thread.sleep(3000);
 		}
 	}
-	
+	public static void main(String[] args) {
+		Message msg = new Message();
+		msg.setReqType(ReqType.RAFT_PING.getRequestType());
+		System.out.println(JSON.toJSONString(msg));
+	}
 }
 class ClientInitializer extends ChannelInitializer<SocketChannel> {
 
@@ -110,7 +144,7 @@ class ClientHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-		NettyClient.RESULT.set(JSON.parseObject(msg, Message.class));
+		//RESULT.set(JSON.parseObject(msg, Message.class));
 		/*System.out.println("Server say : " + msg);
 
 		if ("ping".equals(msg)) {
