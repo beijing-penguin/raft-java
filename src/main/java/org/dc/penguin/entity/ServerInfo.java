@@ -3,22 +3,23 @@ package org.dc.penguin.entity;
 public class ServerInfo {
 	private int port;
 	private String host;
-	private boolean firstConnGood;
 	private int role;
 	
+	private boolean isLocalhost;
 	
 	
+	
+	public boolean isLocalhost() {
+		return isLocalhost;
+	}
+	public void setLocalhost(boolean isLocalhost) {
+		this.isLocalhost = isLocalhost;
+	}
 	public int getRole() {
 		return role;
 	}
 	public void setRole(int role) {
 		this.role = role;
-	}
-	public boolean isFirstConnGood() {
-		return firstConnGood;
-	}
-	public void setFirstConnGood(boolean firstConnGood) {
-		this.firstConnGood = firstConnGood;
 	}
 	public int getPort() {
 		return port;

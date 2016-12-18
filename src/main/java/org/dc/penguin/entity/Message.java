@@ -1,8 +1,10 @@
 package org.dc.penguin.entity;
 
+import com.alibaba.fastjson.JSON;
+
 public class Message {
-	private int reqType;//100，认证
-	private String body;
+	private int reqType;
+	private Object body;
 	
 	public int getReqType() {
 		return reqType;
@@ -10,10 +12,14 @@ public class Message {
 	public void setReqType(int reqType) {
 		this.reqType = reqType;
 	}
-	public String getBody() {
+	public Object getBody() {
 		return body;
 	}
-	public void setBody(String body) {
+	public void setBody(Object body) {
 		this.body = body;
+	}
+	
+	public String toJSONString(){
+		return JSON.toJSONString(this)+"\n";
 	}
 }
