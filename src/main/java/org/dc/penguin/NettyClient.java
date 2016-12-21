@@ -36,6 +36,7 @@ public class NettyClient {
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
 	private Channel leaderChannel;
 	private CountDownLatch downLatch = new CountDownLatch(1);
+	private CountDownLatch getleader_downLatch = new CountDownLatch(1);
 	private Message resultMessage;
 	
 	public NettyClient(String...hostAndPort){
@@ -82,7 +83,8 @@ public class NettyClient {
 							String leaderIp = message.getBody().toString();
 							String host = leaderIp.split(":")[0];
 							int port = Integer.parseInt(leaderIp.split(":")[1]);
-							setLeaderChannel(boot.connect(host, port).sync().channel());
+							leaderChannel = boot.connect(host, port).sync().channel();
+							getleader_downLatch.countDown();
 							ctx.close();
 							break;
 						default:
@@ -139,23 +141,18 @@ public class NettyClient {
 									try {
 										String host = hostPort.split(":")[0];
 										int port = Integer.parseInt(hostPort.split(":")[1]);
-										if(directConnection){
-											leaderChannel = boot.connect(host, port).sync().channel();
-											break;
-										}else{
 											channel = boot.connect(host, port).sync().channel();
 
 											Message msg = new Message();
 											msg.setReqType(MsgType.GET_LEADER);
 											channel.writeAndFlush(msg.toJSONString());
 											normals.add(hostPort);
-											Thread.sleep(3000);
+											getleader_downLatch.await(8, TimeUnit.SECONDS);
 											if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
 												continue;
 											}else{
 												break;
 											}
-										}
 									} catch (Exception e) {
 										LOG.error("",e);
 										exceptions.add(hostPort);
@@ -207,11 +204,11 @@ public class NettyClient {
 		}
 		return resultMessage;
 	}
-	private synchronized void setLeaderChannel(Channel leaderChannel){
+	/*private void setLeaderChannel(Channel leaderChannel){
 		if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
 			this.leaderChannel = leaderChannel;
 		}else{
 			leaderChannel.close();
 		}
-	}
+	}*/
 }
