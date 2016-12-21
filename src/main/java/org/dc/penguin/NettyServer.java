@@ -98,10 +98,10 @@ public class NettyServer {
 							try{
 								ServerInfo serverInfo = serverList.get(i);
 								if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
-									NettyClient client = new NettyClient(serverInfo.getHost()+":"+serverInfo.getPort());
+									NettyClient client = new NettyClient(serverInfo.getHost()+":"+serverInfo.getPort(),true);
 									Message msg = new Message();
 									msg.setReqType(MsgType.GET_LEADER);
-									Object obj = client.get(JSON.toJSONString(msg)+"\n");
+									Message message = client.sendMessage(msg);
 								}
 							}catch(Exception e){
 								LOG.error("",e);
@@ -112,6 +112,7 @@ public class NettyServer {
 			}).start();
 
 			ChannelFuture f = bootstrap.bind(start_port).sync();
+			System.out.println("Server start Successful");
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			LOG.info("",e);

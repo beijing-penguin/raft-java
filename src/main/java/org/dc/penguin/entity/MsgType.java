@@ -7,7 +7,7 @@ public interface MsgType {
 	//获取leader请求
 	public static int GET_LEADER = 101;
 	//没有leader类型的消息，可能服务器全部宕机，或者正在选举leader进行中....
-	public static int NOT_LEADER = 102;
+	//public static int NOT_LEADER = 102;
 	//告诉客户端，本次返回的是leader 的数据
 	public static int YES_LEADER = 103;
 	//获取数据请求

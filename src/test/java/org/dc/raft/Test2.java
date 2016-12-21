@@ -10,9 +10,10 @@ import junit.framework.TestCase;
 public class Test2  extends TestCase{
 
 	public static void main(String[] args) {
-		NettyClient client = new NettyClient("localhost:9001");
+		//NettyClient client = new NettyClient("localhost:9001");
+		byte[] b =null;
 		try {
-			client.get("");
+			System.out.println(new String(b));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
