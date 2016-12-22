@@ -1,5 +1,6 @@
 package org.dc.penguin;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.entity.Message;
 import org.dc.penguin.entity.MsgType;
 import org.dc.penguin.entity.ServerInfo;
+import org.dc.penguin.entity.ServerRole;
 
 import com.alibaba.fastjson.JSON;
 
@@ -36,92 +38,112 @@ import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyServer {
 	private static Log LOG = LogFactory.getLog(NettyServer.class);
-	private static List<ServerInfo> serverList = new ArrayList<ServerInfo>();
+	//初始化
+	private List<ServerInfo> serverList = new ArrayList<ServerInfo>();
+	//初始化集群心跳客户端
+	List<NettyClient> clientList = new ArrayList<NettyClient>();
+	
+	//服务端不会一直创建实例此，所以这里都用非静态
+	private EventLoopGroup bossGroup = new NioEventLoopGroup();
+	private EventLoopGroup workerGroup = new NioEventLoopGroup();
+	private ServerBootstrap bootstrap = new ServerBootstrap();
 
-	private static EventLoopGroup bossGroup = new NioEventLoopGroup();
-	private static EventLoopGroup workerGroup = new NioEventLoopGroup();
-	private static ServerBootstrap bootstrap = new ServerBootstrap();
+	private int role;
+	private int start_port;
 
-	private static int start_port = 9001;
-	public static void main(String[] args) {
-
+	public void startServer(){
 		try{
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childOption(ChannelOption.SO_KEEPALIVE, true)
-			.childHandler(new ChildChannelHandler());
+			.childHandler(new ServerChannelHandler());
+			
+			
+			
+			initServerList();
+			initHeartbeatList();
 
-
-			InputStream in = NettyServer.class.getResourceAsStream("/config.properties");
-			Properties prop =  new  Properties();
-
-			prop.load(in);
-			in.close();
-			try{
-				start_port = Integer.parseInt(prop.getProperty("startPort",start_port+""));
-			}catch(Exception e){
-			}
-			System.out.println(InetAddress.getLocalHost().getHostAddress());
-			System.out.println(InetAddress.getByName("localhost"));
-
-			for (Object key : prop.keySet()) {
-				System.out.println(key);
-				String pro_key = key.toString();
-				if(pro_key.startsWith("server")){
-					String value = prop.getProperty(pro_key);
-					String host = value.split(":")[0];
-					int port = Integer.parseInt(value.split(":")[1]);
-
-					ServerInfo serverInfo = new ServerInfo();
-
-					serverInfo.setHost(host);
-					serverInfo.setPort(port);
-					if((InetAddress.getByName("localhost").getHostAddress().equalsIgnoreCase("127.0.0.1") ||
-							host.equalsIgnoreCase(InetAddress.getLocalHost().getHostAddress()))&& port == start_port){
-						serverInfo.setLocalhost(true);
-					}
-					serverList.add(serverInfo);
-				}
-			}
-
-			//启动raft协议心跳定时器
 			new Thread(new Runnable() {
 				public void run() {
+					
 					while(true){
 						try {
+							for (int i = 0; i < clientList.size(); i++) {
+								try{
+									Message msg = new Message();
+									msg.setReqType(MsgType.GET_LEADER);//返回当前集群中可用机器
+									Message message = clientList.get(i).sendMessage(msg);
+									if(message.getReqType() == MsgType.YES_LEADER){
+										role  = ServerRole.FOLLOWER;
+										//同步获取数据，并阻塞leader服务器，直到数据同步完成。
+										break;
+									}
+								}catch (Exception e) {
+									LOG.error("",e);
+								}
+							}
 							Thread.sleep(3000);
 						} catch (Exception e1) {
 							LOG.error("",e1);
 						}
-						for (int i = 0; i <serverList.size(); i++) {
-							try{
-								ServerInfo serverInfo = serverList.get(i);
-								if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
-									NettyClient client = new NettyClient(serverInfo.getHost()+":"+serverInfo.getPort(),true);
-									Message msg = new Message();
-									msg.setReqType(MsgType.GET_LEADER);
-									Message message = client.sendMessage(msg);
-								}
-							}catch(Exception e){
-								LOG.error("",e);
-							}
-						}
+
 					}
 				}
 			}).start();
-
+			
+			
 			ChannelFuture f = bootstrap.bind(start_port).sync();
 			System.out.println("Server start Successful");
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
-			LOG.info("",e);
-			bossGroup.shutdownGracefully();
 			workerGroup.shutdownGracefully();
+			bossGroup.shutdownGracefully();
+			LOG.error("",e);
+		}
+		
+	}
+	
+	private void initHeartbeatList() {
+		for (int i = 0; i <serverList.size(); i++) {
+			ServerInfo serverInfo = serverList.get(i);
+			if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
+				NettyClient client = new NettyClient(serverInfo.getHost()+":"+serverInfo.getPort(),true);
+				clientList.add(client);
+			}
+		}
+	}
+
+	private void initServerList() throws Exception {
+		InputStream in = NettyServer.class.getResourceAsStream("/config.properties");
+		Properties prop =  new  Properties();
+
+		prop.load(in);
+		in.close();
+		start_port = Integer.parseInt(prop.getProperty("startPort","9001"));
+		
+		for (Object key : prop.keySet()) {
+			System.out.println(key);
+			String pro_key = key.toString();
+			if(pro_key.startsWith("server")){
+				String value = prop.getProperty(pro_key);
+				String host = value.split(":")[0];
+				int port = Integer.parseInt(value.split(":")[1]);
+
+				ServerInfo serverInfo = new ServerInfo();
+
+				serverInfo.setHost(host);
+				serverInfo.setPort(port);
+				if((InetAddress.getByName("localhost").getHostAddress().equalsIgnoreCase("127.0.0.1") ||
+						host.equalsIgnoreCase(InetAddress.getLocalHost().getHostAddress()))&& port == start_port){
+					serverInfo.setLocalhost(true);
+				}
+				serverList.add(serverInfo);
+			}
 		}
 	}
 }
-class ChildChannelHandler extends ChannelInitializer<SocketChannel>{
+class ServerChannelHandler extends ChannelInitializer<SocketChannel>{
 
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
@@ -169,11 +191,12 @@ class ServerHandler extends SimpleChannelInboundHandler<String> {
 				// ctx.channel().writeAndFlush("ping\n");
 			}
 		}
-		super.userEventTriggered(ctx, evt); 
+		//super.userEventTriggered(ctx, evt); 
 	}
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		System.out.println("链接异常中断");
-		super.exceptionCaught(ctx, cause);
+		ctx.close();
+		//super.exceptionCaught(ctx, cause);
 	}
 }

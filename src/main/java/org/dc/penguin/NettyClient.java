@@ -1,6 +1,7 @@
 package org.dc.penguin;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +39,8 @@ public class NettyClient {
 	private CountDownLatch downLatch = new CountDownLatch(1);
 	private CountDownLatch getleader_downLatch = new CountDownLatch(1);
 	private Message resultMessage;
+
+	private boolean close = false;
 	
 	public NettyClient(String...hostAndPort){
 		try{
@@ -105,6 +108,12 @@ public class NettyClient {
 						System.out.println("Client close ");
 						ctx.channel().close();
 					}
+					@Override
+					public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+						System.out.println("链接异常中断");
+						ctx.close();
+						//super.exceptionCaught(ctx, cause);
+					}
 				});
 			}
 		});
@@ -113,24 +122,58 @@ public class NettyClient {
 	 * @throws Exception 
 	 * 
 	 */
-	public void startChannelListener (final String[] hostAndPort,final boolean directConnection){
+	private void startChannelListener(final String[] hostAndPort,final boolean directConnection){
 		try{
 			if(directConnection){
-				String host = hostAndPort[0].split(":")[0];
-				int port = Integer.parseInt(hostAndPort[0].split(":")[1]);
-				leaderChannel = boot.connect(host, port).sync().channel();
-			}else{
+				final String host = hostAndPort[0].split(":")[0];
+				final int port = Integer.parseInt(hostAndPort[0].split(":")[1]);
+				try{
+					leaderChannel = boot.connect(host, port).sync().channel();
+				}catch (Exception e) {
+					LOG.error("",e);
+				}
 				new Thread(new Runnable() {
 					public void run() {
-						List<String> all = new ArrayList<String>();
-						for (int i = 0; i < hostAndPort.length; i++) {
-							all.add(hostAndPort[i]);
+						while(true){
+							if(close){
+								close();
+								break;
+							}
+							try {
+								if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
+									leaderChannel = boot.connect(host, port).sync().channel();
+								}
+								Thread.sleep(3000);
+							} catch (Exception e) {
+								LOG.error("",e);
+							}
 						}
+					}
+				}).start();
+			}else{
+				final String host = hostAndPort[0].split(":")[0];
+				final int port = Integer.parseInt(hostAndPort[0].split(":")[1]);
+				try{
+					Channel channel = boot.connect(host, port).sync().channel();
+					Message msg = new Message();
+					msg.setReqType(MsgType.GET_LEADER);
+					channel.writeAndFlush(msg.toJSONString());
+					getleader_downLatch.await(8, TimeUnit.SECONDS);
+				}catch (Exception e) {
+					LOG.error("",e);
+				}
+				new Thread(new Runnable() {
+					public void run() {
+						List<String> all = Arrays.asList(hostAndPort);
 						List<String> normals = new ArrayList<String>();
 						List<String> exceptions = new ArrayList<String>();
 
 						//服务器可用顺序
 						while(true){
+							if(close){
+								close();
+								break;
+							}
 							if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
 								normals.clear();
 								exceptions.clear();
@@ -141,18 +184,18 @@ public class NettyClient {
 									try {
 										String host = hostPort.split(":")[0];
 										int port = Integer.parseInt(hostPort.split(":")[1]);
-											channel = boot.connect(host, port).sync().channel();
+										channel = boot.connect(host, port).sync().channel();
 
-											Message msg = new Message();
-											msg.setReqType(MsgType.GET_LEADER);
-											channel.writeAndFlush(msg.toJSONString());
-											normals.add(hostPort);
-											getleader_downLatch.await(8, TimeUnit.SECONDS);
-											if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
-												continue;
-											}else{
-												break;
-											}
+										Message msg = new Message();
+										msg.setReqType(MsgType.GET_LEADER);
+										channel.writeAndFlush(msg.toJSONString());
+										normals.add(hostPort);
+										getleader_downLatch.await(8, TimeUnit.SECONDS);
+										if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
+											continue;
+										}else{
+											break;
+										}
 									} catch (Exception e) {
 										LOG.error("",e);
 										exceptions.add(hostPort);
@@ -203,6 +246,19 @@ public class NettyClient {
 			throw new Exception("获取数据异常");
 		}
 		return resultMessage;
+	}
+	public void close(){
+		this.close = true;
+		boot = null;
+		resultMessage = null;
+		try{
+			if(leaderChannel!=null){
+				leaderChannel.close();
+				leaderChannel = null;
+			}
+		}catch (Exception e) {
+			LOG.error("",e);
+		}
 	}
 	/*private void setLeaderChannel(Channel leaderChannel){
 		if(leaderChannel==null || !leaderChannel.isActive() || !leaderChannel.isOpen()){
