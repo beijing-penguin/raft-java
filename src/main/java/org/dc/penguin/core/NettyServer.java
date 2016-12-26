@@ -1,4 +1,4 @@
-package org.dc.penguin;
+package org.dc.penguin.core;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +37,10 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyServer {
+	public static void main(String[] args) {
+		NettyServer server = new NettyServer();
+		server.startServer();
+	}
 	private static Log LOG = LogFactory.getLog(NettyServer.class);
 	//初始化
 	private List<ServerInfo> serverList = new ArrayList<ServerInfo>();
@@ -49,7 +53,7 @@ public class NettyServer {
 	private ServerBootstrap bootstrap = new ServerBootstrap();
 
 	private int role;
-	private int start_port;
+	private int start_port = 9001;
 
 	public void startServer(){
 		try{
@@ -94,7 +98,7 @@ public class NettyServer {
 			
 			
 			ChannelFuture f = bootstrap.bind(start_port).sync();
-			System.out.println("Server start Successful");
+			System.out.println("Server start Successful,Port="+start_port);
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();

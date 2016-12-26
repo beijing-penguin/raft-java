@@ -1,4 +1,4 @@
-package org.dc.penguin.entity;
+package org.dc.penguin.core.entity;
 
 import com.alibaba.fastjson.JSON;
 

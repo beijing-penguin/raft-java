@@ -1,4 +1,4 @@
-package org.dc.penguin.entity;
+package org.dc.penguin.core.entity;
 
 public interface ServerRole {
 	public static int FOLLOWER = 1;//候选人

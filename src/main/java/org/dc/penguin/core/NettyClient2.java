@@ -1,4 +1,4 @@
-package org.dc.penguin;
+package org.dc.penguin.core;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,13 +8,14 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.entity.Message;
-import org.dc.penguin.entity.MsgType;
+import org.dc.penguin.core.entity.Message;
+import org.dc.penguin.core.entity.MsgType;
 
 import com.alibaba.fastjson.JSON;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -22,6 +23,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.pool.FixedChannelPool;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
@@ -29,30 +31,34 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
-public class NettyClient {
-	private static Log LOG = LogFactory.getLog(NettyClient.class);
+public class NettyClient2 {
+	private static Log LOG = LogFactory.getLog(NettyClient2.class);
 	//多线程情况下，公用线程组
 	private static EventLoopGroup group = new NioEventLoopGroup();
 	//多线程公用Bootstrap对象
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
+	
 	private Channel leaderChannel;
+	
 	private CountDownLatch downLatch = new CountDownLatch(1);
 	private CountDownLatch getleader_downLatch = new CountDownLatch(1);
 	private Message resultMessage;
 
 	private boolean close = false;
 	
-	public NettyClient(String...hostAndPort){
+	public NettyClient2(String...hostAndPort){
 		try{
 			//初始化boot
 			initBoot();
+			FixedChannelPool fix = new FixedChannelPool(bootstrap, handler, maxConnections);
+			Channel channel = fix.acquire().get();
 			//启动leader服务器异常检查，并自动获取leader服务器
 			startChannelListener(hostAndPort,false);
 		}catch (Exception e) {
 			LOG.info("",e);
 		}
 	}
-	public NettyClient(String hostAndPort,boolean directConnection){
+	/*public NettyClient2(String hostAndPort,boolean directConnection){
 		try{
 			//初始化boot
 			initBoot();
@@ -61,8 +67,8 @@ public class NettyClient {
 		}catch (Exception e) {
 			LOG.info("",e);
 		}
-	}
-	public NettyClient(Channel channel){
+	}*/
+	public NettyClient2(Channel channel){
 		this.leaderChannel = channel;
 	}
 	private void initBoot(){
@@ -75,25 +81,27 @@ public class NettyClient {
 				pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
 				pipeline.addLast("decoder", new StringDecoder());
 				pipeline.addLast("encoder", new StringEncoder());
-
 				// 客户端的逻辑
 				pipeline.addLast("handler", new SimpleChannelInboundHandler<String>() {
 					@Override
 					protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
 						Message message = JSON.parseObject(msg, Message.class);
 						switch (message.getReqType()) {
+						case MsgType.SUCCESS:
+							resultMessage = message;
+							downLatch.countDown();
+							break;
 						case MsgType.YES_LEADER:
 							String leaderIp = message.getBody().toString();
 							String host = leaderIp.split(":")[0];
 							int port = Integer.parseInt(leaderIp.split(":")[1]);
 							leaderChannel = boot.connect(host, port).sync().channel();
-							getleader_downLatch.countDown();
 							ctx.close();
 							break;
-						default:
-							resultMessage = message;
-							downLatch.countDown();
+						case MsgType.NO_LEADER:
 							break;
+						default:
+							throw new Exception("消息解析失败");
 						}
 					}
 
@@ -106,7 +114,7 @@ public class NettyClient {
 					@Override
 					public void channelInactive(ChannelHandlerContext ctx) throws Exception {
 						System.out.println("Client close ");
-						ctx.channel().close();
+						//ctx.channel().close();
 					}
 					@Override
 					public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
@@ -224,7 +232,8 @@ public class NettyClient {
 		}
 	}
 	public static void main(String[] args) throws Exception {
-		new NettyClient("localhost:9001");
+		NettyClient2 client = new NettyClient2("localhost:9001");
+		client.getData("aa");
 	}
 	public byte[] getData(String key) throws Exception{
 		resultMessage = null;

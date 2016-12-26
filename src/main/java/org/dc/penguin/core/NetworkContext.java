@@ -1,4 +1,4 @@
-package org.dc.penguin;
+package org.dc.penguin.core;
 
 public class NetworkContext {
 	private static final ThreadLocal<NetworkContext> networkContext = new ThreadLocal<NetworkContext>();
