@@ -1,6 +1,5 @@
-package org.dc.penguin.core;
+package org.dc.penguin.core.raft;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -10,10 +9,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.entity.Message;
-import org.dc.penguin.entity.MsgType;
-import org.dc.penguin.entity.ServerInfo;
-import org.dc.penguin.entity.ServerRole;
+import org.dc.penguin.core.SystemInit;
+import org.dc.penguin.core.entity.Message;
+import org.dc.penguin.core.entity.MsgType;
+import org.dc.penguin.core.entity.Role;
+import org.dc.penguin.core.entity.ServerInfo;
 
 import com.alibaba.fastjson.JSON;
 
@@ -36,16 +36,16 @@ import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
-public class NettyServer {
+public class NettyRaftServer {
 	public static void main(String[] args) {
-		NettyServer server = new NettyServer();
+		NettyRaftServer server = new NettyRaftServer();
 		server.startServer();
 	}
-	private static Log LOG = LogFactory.getLog(NettyServer.class);
+	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
 	//初始化
 	private List<ServerInfo> serverList = new ArrayList<ServerInfo>();
 	//初始化集群心跳客户端
-	List<NettyClient> clientList = new ArrayList<NettyClient>();
+	List<NettyRaftClient> clientList = new ArrayList<NettyRaftClient>();
 	
 	//服务端不会一直创建实例此，所以这里都用非静态
 	private EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -53,22 +53,38 @@ public class NettyServer {
 	private ServerBootstrap bootstrap = new ServerBootstrap();
 
 	private int role;
-	private int start_port = 9001;
-
+	
+	
 	public void startServer(){
 		try{
+			//判断当前是否有leader,如果有，则同步数据，如果同步超时，则删除本机器，同步成功，则加入raft集群
+			boolean haveLeader = false;
+			for (int i = 0,len= SystemInit.serverList.size(); i < len; i++) {
+				ServerInfo serverInfo = SystemInit.serverList.get(i);
+				if(!serverInfo.isLocalhost()){
+					//如果不是本地配置的，就询问是不是leader
+					NettyRaftClient raftClient = new NettyRaftClient(serverInfo.getHost()+":"+serverInfo.getPort());
+					String leaderInfo = raftClient.getLeader();
+					if(leaderInfo!=null){
+						haveLeader = true;
+						break;
+					}
+				}
+			}
+			if(haveLeader==false){//未找到leader
+				if(SystemInit.serverList.size()>1){
+					throw new Exception("未找到leader");
+				}else if(SystemInit.serverList.size()==1){
+					SystemInit.serverList.get(0).setRole(Role.LEADER);
+				}
+			}
+			
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
-			.childOption(ChannelOption.SO_KEEPALIVE, true)
-			.childHandler(new ServerChannelHandler());
-			
-			
-			
-			initServerList();
-			initHeartbeatList();
+			.childHandler(new RaftServerChannelHandler());
 
-			new Thread(new Runnable() {
+			/*new Thread(new Runnable() {
 				public void run() {
 					
 					while(true){
@@ -94,11 +110,11 @@ public class NettyServer {
 
 					}
 				}
-			}).start();
+			}).start();*/
 			
 			
-			ChannelFuture f = bootstrap.bind(start_port).sync();
-			System.out.println("Server start Successful,Port="+start_port);
+			ChannelFuture f = bootstrap.bind(SystemInit.start_port).sync();
+			System.out.println("Server start Successful,Port="+SystemInit.start_port);
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();
@@ -112,42 +128,13 @@ public class NettyServer {
 		for (int i = 0; i <serverList.size(); i++) {
 			ServerInfo serverInfo = serverList.get(i);
 			if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
-				NettyClient client = new NettyClient(serverInfo.getHost()+":"+serverInfo.getPort(),true);
+				NettyRaftClient client = new NettyRaftClient(serverInfo.getHost()+":"+serverInfo.getPort());
 				clientList.add(client);
 			}
 		}
 	}
-
-	private void initServerList() throws Exception {
-		InputStream in = NettyServer.class.getResourceAsStream("/config.properties");
-		Properties prop =  new  Properties();
-
-		prop.load(in);
-		in.close();
-		start_port = Integer.parseInt(prop.getProperty("startPort","9001"));
-		
-		for (Object key : prop.keySet()) {
-			System.out.println(key);
-			String pro_key = key.toString();
-			if(pro_key.startsWith("server")){
-				String value = prop.getProperty(pro_key);
-				String host = value.split(":")[0];
-				int port = Integer.parseInt(value.split(":")[1]);
-
-				ServerInfo serverInfo = new ServerInfo();
-
-				serverInfo.setHost(host);
-				serverInfo.setPort(port);
-				if((InetAddress.getByName("localhost").getHostAddress().equalsIgnoreCase("127.0.0.1") ||
-						host.equalsIgnoreCase(InetAddress.getLocalHost().getHostAddress()))&& port == start_port){
-					serverInfo.setLocalhost(true);
-				}
-				serverList.add(serverInfo);
-			}
-		}
-	}
 }
-class ServerChannelHandler extends ChannelInitializer<SocketChannel>{
+class RaftServerChannelHandler extends ChannelInitializer<SocketChannel>{
 
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
@@ -164,10 +151,11 @@ class ServerChannelHandler extends ChannelInitializer<SocketChannel>{
 		pipeline.addLast("decoder", new StringDecoder());
 		pipeline.addLast("encoder", new StringEncoder());
 		// 自己的逻辑Handler
-		pipeline.addLast("handler", new ServerHandler());
+		pipeline.addLast("handler", new RaftServerHandler());
 	}
+	
 }
-class ServerHandler extends SimpleChannelInboundHandler<String> {
+class RaftServerHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
@@ -203,4 +191,5 @@ class ServerHandler extends SimpleChannelInboundHandler<String> {
 		ctx.close();
 		//super.exceptionCaught(ctx, cause);
 	}
+
 }

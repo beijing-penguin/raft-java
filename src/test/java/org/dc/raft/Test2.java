@@ -1,6 +1,5 @@
 package org.dc.raft;
 
-import org.dc.penguin.NettyClient;
 
 import junit.framework.TestCase;
 

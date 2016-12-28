@@ -7,6 +7,23 @@ public class ServerInfo {
 	
 	private boolean isLocalhost;
 	
+	/**
+	 * 开启链路重连心跳检查,以及raft协议发包
+	 */
+	/*public void startHeartbeat(){
+		new Thread(new Runnable() {
+			public void run() {
+				NettyRaftClient client = new NettyRaftClient(port+":"+host);
+			}
+		}).start();
+	}*/
+	
+	/*public Channel getChannel() {
+		return channel;
+	}
+	public void setChannel(Channel channel) {
+		this.channel = channel;
+	}*/
 	
 	
 	public boolean isLocalhost() {
