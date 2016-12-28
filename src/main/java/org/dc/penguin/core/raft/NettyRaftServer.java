@@ -5,15 +5,17 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.SystemInit;
+import org.dc.penguin.core.Commons;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
 import org.dc.penguin.core.entity.Role;
 import org.dc.penguin.core.entity.ServerInfo;
+import org.dc.penguin.core.utils.Utils;
 
 import com.alibaba.fastjson.JSON;
 
@@ -43,24 +45,21 @@ public class NettyRaftServer {
 	}
 	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
 	//初始化
-	private List<ServerInfo> serverList = new ArrayList<ServerInfo>();
-	//初始化集群心跳客户端
-	List<NettyRaftClient> clientList = new ArrayList<NettyRaftClient>();
-	
+
 	//服务端不会一直创建实例此，所以这里都用非静态
 	private EventLoopGroup bossGroup = new NioEventLoopGroup();
 	private EventLoopGroup workerGroup = new NioEventLoopGroup();
 	private ServerBootstrap bootstrap = new ServerBootstrap();
 
 	private int role;
-	
-	
+
+
 	public void startServer(){
 		try{
 			//判断当前是否有leader,如果有，则同步数据，如果同步超时，则删除本机器，同步成功，则加入raft集群
-			boolean haveLeader = false;
-			for (int i = 0,len= SystemInit.serverList.size(); i < len; i++) {
-				ServerInfo serverInfo = SystemInit.serverList.get(i);
+			/*boolean haveLeader = false;
+			for (int i = 0,len= Commons.serverList.size(); i < len; i++) {
+				ServerInfo serverInfo = Commons.serverList.get(i);
 				if(!serverInfo.isLocalhost()){
 					//如果不是本地配置的，就询问是不是leader
 					NettyRaftClient raftClient = new NettyRaftClient(serverInfo.getHost()+":"+serverInfo.getPort());
@@ -72,59 +71,55 @@ public class NettyRaftServer {
 				}
 			}
 			if(haveLeader==false){//未找到leader
-				if(SystemInit.serverList.size()>1){
+				if(Commons.serverList.size()>1){
 					throw new Exception("未找到leader");
-				}else if(SystemInit.serverList.size()==1){
-					SystemInit.serverList.get(0).setRole(Role.LEADER);
+				}else if(Commons.serverList.size()==1){
+					Commons.serverList.get(0).setRole(Role.LEADER);
 				}
-			}
+			}*/
+			new Thread(new Runnable() {
+				
+				public void run() {
+					try {
+						String leaderInfo = Utils.getLeaderByHard();
+						Thread.sleep(1000000);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			}).start();
+			/*String leaderInfo = Commons.threadPool.submit(new Callable<String>() {
+
+				public String call() throws Exception {
+					return  Utils.getLeaderByHard();
+				}
+				
+			}).get();*/
 			
+			/*if(leaderInfo == null){
+				if(Commons.serverList.size()>1){
+					throw new Exception("未找到leader");
+				}else if(Commons.serverList.size()==1){
+					Commons.serverList.get(0).setRole(Role.LEADER);
+				}
+			}*/
+
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childHandler(new RaftServerChannelHandler());
-
-			/*new Thread(new Runnable() {
-				public void run() {
-					
-					while(true){
-						try {
-							for (int i = 0; i < clientList.size(); i++) {
-								try{
-									Message msg = new Message();
-									msg.setReqType(MsgType.GET_LEADER);//返回当前集群中可用机器
-									Message message = clientList.get(i).sendMessage(msg);
-									if(message.getReqType() == MsgType.YES_LEADER){
-										role  = ServerRole.FOLLOWER;
-										//同步获取数据，并阻塞leader服务器，直到数据同步完成。
-										break;
-									}
-								}catch (Exception e) {
-									LOG.error("",e);
-								}
-							}
-							Thread.sleep(3000);
-						} catch (Exception e1) {
-							LOG.error("",e1);
-						}
-
-					}
-				}
-			}).start();*/
-			
-			
-			ChannelFuture f = bootstrap.bind(SystemInit.start_port).sync();
-			System.out.println("Server start Successful,Port="+SystemInit.start_port);
+			ChannelFuture f = bootstrap.bind(Commons.start_port).sync();
+			System.out.println("Server start Successful,Port="+Commons.start_port);
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();
 			bossGroup.shutdownGracefully();
 			LOG.error("",e);
 		}
-		
+
 	}
-	
-	private void initHeartbeatList() {
+
+	/*private void initHeartbeatList() {
 		for (int i = 0; i <serverList.size(); i++) {
 			ServerInfo serverInfo = serverList.get(i);
 			if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
@@ -132,7 +127,7 @@ public class NettyRaftServer {
 				clientList.add(client);
 			}
 		}
-	}
+	}*/
 }
 class RaftServerChannelHandler extends ChannelInitializer<SocketChannel>{
 
@@ -153,7 +148,7 @@ class RaftServerChannelHandler extends ChannelInitializer<SocketChannel>{
 		// 自己的逻辑Handler
 		pipeline.addLast("handler", new RaftServerHandler());
 	}
-	
+
 }
 class RaftServerHandler extends SimpleChannelInboundHandler<String> {
 
