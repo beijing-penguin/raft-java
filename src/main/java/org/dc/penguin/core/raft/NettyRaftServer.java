@@ -4,7 +4,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.Commons;
 import org.dc.penguin.core.InitSystemHandle;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;

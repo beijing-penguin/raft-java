@@ -103,9 +103,7 @@ public class Utils {
 		netInterfaces = NetworkInterface.getNetworkInterfaces();  
 		InetAddress ip = null;  
 		while (netInterfaces.hasMoreElements()) {  
-			NetworkInterface ni = (NetworkInterface) netInterfaces  
-					.nextElement();  
-			//System.out.println("---Name---:" + ni.getName());  
+			NetworkInterface ni = (NetworkInterface) netInterfaces.nextElement();  
 			Enumeration<InetAddress> nii = ni.getInetAddresses();  
 			while (nii.hasMoreElements()) {  
 				ip = (InetAddress) nii.nextElement();  
@@ -113,7 +111,7 @@ public class Utils {
 					ipSet.add(ip.getHostAddress());
 				}  
 			}  
-		}  
+		}
 		return ipSet;
 	}  
 }
