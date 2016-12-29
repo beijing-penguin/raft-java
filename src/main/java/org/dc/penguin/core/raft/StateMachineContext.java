@@ -19,7 +19,7 @@ package org.dc.penguin.core.raft;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.netty.channel.Channel;
+import io.netty.channel.Channel; 
 
 public class StateMachineContext {
 	private List<NettyRaftConnection> machineInfoList = new ArrayList<NettyRaftConnection>();
