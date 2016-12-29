@@ -14,7 +14,7 @@ import org.dc.penguin.core.utils.ConfigManager;
 
 public class Commons {
 	
-	private static final Log LOG = LogFactory.getLog(Commons.class);
+	/*private static final Log LOG = LogFactory.getLog(Commons.class);
 	
 	public static ExecutorService threadPool = Executors.newFixedThreadPool(10);
 	public static List<ServerInfo> serverList = new ArrayList<ServerInfo>();
@@ -49,5 +49,5 @@ public class Commons {
 		} catch (Exception e) {
 			LOG.info("",e);
 		}
-	}
+	}*/
 }

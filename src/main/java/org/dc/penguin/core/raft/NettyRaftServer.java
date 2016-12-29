@@ -1,20 +1,13 @@
 package org.dc.penguin.core.raft;
 
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.Commons;
+import org.dc.penguin.core.InitSystemHandle;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.entity.Role;
-import org.dc.penguin.core.entity.ServerInfo;
 import org.dc.penguin.core.utils.Utils;
 
 import com.alibaba.fastjson.JSON;
@@ -39,11 +32,23 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyRaftServer {
-	public static void main(String[] args) {
-		NettyRaftServer server = new NettyRaftServer();
-		server.startServer();
-	}
 	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
+	
+	public static void main(String[] args) {
+		InitSystemHandle init = InitSystemHandle.getInstance();
+		try {
+			init.initConfig();
+			
+			NettyRaftServer server = new NettyRaftServer();
+			server.startServer();
+			
+		} catch (Exception e) {
+			LOG.info("",e);
+		}
+		
+		
+	}
+	
 	//初始化
 
 	//服务端不会一直创建实例此，所以这里都用非静态
@@ -77,17 +82,17 @@ public class NettyRaftServer {
 					Commons.serverList.get(0).setRole(Role.LEADER);
 				}
 			}*/
-			new Thread(new Runnable() {
+			//String leaderInfo = Utils.getLeaderByHard();
+			/*new Thread(new Runnable() {
 				
 				public void run() {
 					try {
 						String leaderInfo = Utils.getLeaderByHard();
-						Thread.sleep(1000000);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
 				}
-			}).start();
+			}).start();*/
 			/*String leaderInfo = Commons.threadPool.submit(new Callable<String>() {
 
 				public String call() throws Exception {
@@ -108,8 +113,8 @@ public class NettyRaftServer {
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childHandler(new RaftServerChannelHandler());
-			ChannelFuture f = bootstrap.bind(Commons.start_port).sync();
-			System.out.println("Server start Successful,Port="+Commons.start_port);
+			ChannelFuture f = bootstrap.bind(Utils.getLocal().getPort()).sync();
+			System.out.println("Server start Successful,Port="+Utils.getLocal().getPort());
 			f.channel().closeFuture().sync();
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();

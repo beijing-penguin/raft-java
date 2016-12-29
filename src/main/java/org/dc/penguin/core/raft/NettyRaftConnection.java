@@ -1,7 +1,6 @@
 package org.dc.penguin.core.raft;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -27,32 +26,30 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
-public class NettyRaftClient {
-	private static Log LOG = LogFactory.getLog(NettyRaftClient.class);
+public class NettyRaftConnection {
+	private static Log LOG = LogFactory.getLog(NettyRaftConnection.class);
 	//多线程情况下，公用线程组
 	private static EventLoopGroup group = new NioEventLoopGroup();
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
-	
-	private Channel channel;
+
 	private String host;
 	private int port;
+	private boolean isLocalhost;
+	
+	
+	private Channel channel;
 	
 	private CountDownLatch downLatch = new CountDownLatch(1);
 	private Message resultMessage;
 
-	
-	public NettyRaftClient(String hostAndPort){
-		this.host = hostAndPort.split(":")[0];
-		this.port = Integer.parseInt(hostAndPort.split(":")[1]);
-		try{
-			//初始化boot
-			initBoot();
-			//启动leader服务器异常检查，并自动获取leader服务器
-			//startChannelListener(hostAndPort,false);
-		}catch (Exception e) {
-			LOG.info("",e);
-			group.shutdownGracefully();
-		}
+
+	public NettyRaftConnection(String host,int port){
+		this.host = host;
+		this.port = port;
+		//初始化boot
+		initBoot();
+		//启动leader服务器异常检查，并自动获取leader服务器
+		//startChannelListener(hostAndPort,false);
 	}
 	/*public NettyClient2(String hostAndPort,boolean directConnection){
 		try{
@@ -64,7 +61,7 @@ public class NettyRaftClient {
 			LOG.info("",e);
 		}
 	}*/
-	private void initBoot() throws Exception{
+	private void initBoot(){
 		boot.handler(new ChannelInitializer<SocketChannel>() {
 			@Override
 			protected void initChannel(SocketChannel ch) throws Exception {
@@ -120,9 +117,9 @@ public class NettyRaftClient {
 				});
 			}
 		});
-		
-		channel = boot.connect(host, port).sync().channel();
-		
+
+		//channel = boot.connect(host, port).sync().channel();
+
 	}
 	/**
 	 * @throws Exception 
@@ -229,7 +226,7 @@ public class NettyRaftClient {
 			LOG.error("",e);
 		}
 	}*/
-	public static void main(String[] args) throws Exception {
+	/*public static void main(String[] args) throws Exception {
 		Message msg = new Message();
 		msg.setReqType(MsgType.GET_LEADER);
 		msg.setBody(Utils.getLocalHostAndPort().getBytes());
@@ -239,7 +236,7 @@ public class NettyRaftClient {
 		Message msgs = JSON.parseObject("{\"body\":\"bG9jYWxob3N0OjkwMDE=\",\"reqType\":101}", Message.class);
 		System.out.println(new String(msgs.getBody()));
 		//client.getData("aa");
-	}
+	}*/
 	/*public byte[] getData(String key) throws Exception{
 		resultMessage = null;
 		Message msg =new Message();
@@ -252,7 +249,7 @@ public class NettyRaftClient {
 		}
 		return resultMessage.getBody();
 	}*/
-	public Message sendMessage(Message msg) throws Exception{
+	/*public Message sendMessage(Message msg) throws Exception{
 		resultMessage = null;
 		channel.writeAndFlush(msg.toJSONString());
 		downLatch.await(8,TimeUnit.SECONDS);
@@ -260,7 +257,7 @@ public class NettyRaftClient {
 			throw new Exception("获取数据异常");
 		}
 		return resultMessage;
-	}
+	}*/
 	/*public void close(){
 		this.close = true;
 		boot = null;
@@ -274,16 +271,58 @@ public class NettyRaftClient {
 			LOG.error("",e);
 		}
 	}*/
-	public String getLeader() throws Exception {
+	/*public String getLeader() throws Exception {
 		Message msg = new Message();
 		msg.setReqType(MsgType.GET_LEADER);
 		msg.setBody(Utils.getLocalHostAndPort().getBytes());
 		channel.writeAndFlush(msg.toJSONString());
-		
+
 		downLatch.await(8,TimeUnit.SECONDS);
 		if(resultMessage==null){
 			throw new Exception("获取数据异常");
 		}
 		return new String(resultMessage.getBody());
+	}*/
+	
+	public Channel getConnection() throws InterruptedException{
+		if(channel==null){
+			channel = boot.connect(host, port).sync().channel();
+		}else if(!channel.isOpen() || !channel.isActive()){
+			channel.close().sync();
+			channel = null;
+			channel = boot.connect(host, port).sync().channel();
+		}
+		return channel;
+	}
+	
+	public String getHost() {
+		return host;
+	}
+	public void setHost(String host) {
+		this.host = host;
+	}
+	public int getPort() {
+		return port;
+	}
+	public void setPort(int port) {
+		this.port = port;
+	}
+	public CountDownLatch getDownLatch() {
+		return downLatch;
+	}
+	public void setDownLatch(CountDownLatch downLatch) {
+		this.downLatch = downLatch;
+	}
+	public Message getResultMessage() {
+		return resultMessage;
+	}
+	public void setResultMessage(Message resultMessage) {
+		this.resultMessage = resultMessage;
+	}
+	public boolean isLocalhost() {
+		return isLocalhost;
+	}
+	public void setLocalhost(boolean isLocalhost) {
+		this.isLocalhost = isLocalhost;
 	}
 }
