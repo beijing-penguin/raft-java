@@ -1,7 +1,6 @@
 package org.dc.penguin.core;
 
 public class Commons {
-	
 	/*private static final Log LOG = LogFactory.getLog(Commons.class);
 	
 	public static ExecutorService threadPool = Executors.newFixedThreadPool(10);

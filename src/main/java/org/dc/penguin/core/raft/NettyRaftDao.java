@@ -12,9 +12,9 @@ public class NettyRaftDao {
 	private static final Log LOG = LogFactory.getLog(NettyRaftDao.class);
 	private static InitSystemHandle initConfig = InitSystemHandle.getInstance();
 	
-	public static String getLeader() throws Exception{
+	/*public static String getLeader() throws Exception{
 		for (int i = 0,len=initConfig.connVector.size(); i < len; i++) {
-			NettyRaftConnection raftConnection = initConfig.connVector.get(i);
+			LocalStateMachine raftConnection = initConfig.connVector.get(i);
 			
 			int connNum = 0;
 			try{
@@ -26,7 +26,7 @@ public class NettyRaftDao {
 		}
 		
 		return null;
-		/*Message msg = new Message();
+		Message msg = new Message();
 		msg.setReqType(MsgType.GET_LEADER);
 		msg.setBody(Utils.getLocalHostAndPort().getBytes());
 		connection.getConnection().writeAndFlush(msg.toJSONString());
@@ -35,6 +35,6 @@ public class NettyRaftDao {
 		if(connection.getResultMessage()==null){
 			throw new Exception("获取数据异常");
 		}
-		return new String(connection.getResultMessage().getBody());*/
-	}
+		return new String(connection.getResultMessage().getBody());
+	}*/
 }

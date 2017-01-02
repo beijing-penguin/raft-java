@@ -7,12 +7,12 @@ import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.InitSystemHandle;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.utils.Utils;
+import org.dc.penguin.core.entity.Role;
+import org.dc.penguin.core.utils.RaftUtils;
 
 import com.alibaba.fastjson.JSON;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -32,106 +32,75 @@ import io.netty.handler.timeout.IdleStateHandler;
 
 public class NettyRaftServer {
 	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
-	
-	public static void main(String[] args) {
-		InitSystemHandle init = InitSystemHandle.getInstance();
-		try {
-			init.initConfig();
-			
-			NettyRaftServer server = new NettyRaftServer();
-			server.startServer();
-			
-		} catch (Exception e) {
-			LOG.info("",e);
-		}
-		
-		
-	}
-	
-	//初始化
 
-	//服务端不会一直创建实例此，所以这里都用非静态
 	private EventLoopGroup bossGroup = new NioEventLoopGroup();
 	private EventLoopGroup workerGroup = new NioEventLoopGroup();
 	private ServerBootstrap bootstrap = new ServerBootstrap();
-
-	private int role;
-
-
+	private static InitSystemHandle init = InitSystemHandle.getInstance();
+	public static void main(String[] args) {
+		try {
+			init.initConfig();
+			NettyRaftServer server = new NettyRaftServer();
+			server.startServer();
+		} catch (Exception e) {
+			LOG.info("",e);
+		}
+	}
 	public void startServer(){
 		try{
-			//判断当前是否有leader,如果有，则同步数据，如果同步超时，则删除本机器，同步成功，则加入raft集群
-			/*boolean haveLeader = false;
-			for (int i = 0,len= Commons.serverList.size(); i < len; i++) {
-				ServerInfo serverInfo = Commons.serverList.get(i);
-				if(!serverInfo.isLocalhost()){
-					//如果不是本地配置的，就询问是不是leader
-					NettyRaftClient raftClient = new NettyRaftClient(serverInfo.getHost()+":"+serverInfo.getPort());
-					String leaderInfo = raftClient.getLeader();
-					if(leaderInfo!=null){
-						haveLeader = true;
-						break;
-					}
-				}
-			}
-			if(haveLeader==false){//未找到leader
-				if(Commons.serverList.size()>1){
-					throw new Exception("未找到leader");
-				}else if(Commons.serverList.size()==1){
-					Commons.serverList.get(0).setRole(Role.LEADER);
-				}
-			}*/
-			//String leaderInfo = Utils.getLeaderByHard();
-			/*new Thread(new Runnable() {
-				
-				public void run() {
-					try {
-						String leaderInfo = Utils.getLeaderByHard();
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-			}).start();*/
-			/*String leaderInfo = Commons.threadPool.submit(new Callable<String>() {
-
-				public String call() throws Exception {
-					return  Utils.getLeaderByHard();
-				}
-				
-			}).get();*/
-			
-			/*if(leaderInfo == null){
-				if(Commons.serverList.size()>1){
-					throw new Exception("未找到leader");
-				}else if(Commons.serverList.size()==1){
-					Commons.serverList.get(0).setRole(Role.LEADER);
-				}
-			}*/
-
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childHandler(new RaftServerChannelHandler());
-			ChannelFuture f = bootstrap.bind(Utils.getLocal().getPort()).sync();
-			System.out.println("Server start Successful,Port="+Utils.getLocal().getPort());
-			f.channel().closeFuture().sync();
+			for (int i = 0; i < init.getConnVector().size(); i++) {
+				LocalStateMachine machine = init.getConnVector().get(i);
+				if(machine.isLocalhost()){
+					bootstrap.bind(machine.getPort()).sync();
+					System.out.println("Server start Successful,Port="+machine.getPort());
+					//告诉leader， 我来了。如果得到主的响应，则同步主的数据。主服务自动和该服务保持心跳联系。
+					try{
+						String leaderInnfo = machine.getOnlineLeader();
+						if(leaderInnfo!=null){
+							//同步集群信息和data数据
+							machine.syncAllClusterInfo(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
+							//通知领导，数据已同步完，加入集群
+							machine.joinLeaderCluster(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
+						}
+					} catch (Exception e) {
+						LOG.error("",e);
+					}
+				}
+			}
+			/*LocalStateMachine machine = init.connVector.get(0);
+			//开始获取领导
+			if(init.connVector.get(0).getLeaderAndSyncData()){
+				//开始同步集群信息和存储数据
+				if(machine.sendAllMachineInfo()){
+					machine.setRole(Role.LEADER);
+				}
+			}*/
+			//开始监听leader的心跳
+			/*new Thread(new Runnable() {
+				public void run() {
+					while(true){
+						try {
+							Thread.sleep(3000);
+							if(RaftUtils.getOnlineLeader() == null){
+								//设置领导
+								
+							}
+						} catch (InterruptedException e) {
+							LOG.info("",e);
+						}
+					}
+				}
+			}).start();*/
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();
 			bossGroup.shutdownGracefully();
 			LOG.error("",e);
 		}
-
 	}
-
-	/*private void initHeartbeatList() {
-		for (int i = 0; i <serverList.size(); i++) {
-			ServerInfo serverInfo = serverList.get(i);
-			if(!serverInfo.isLocalhost()){//排除本机，只和其他机器保持心跳
-				NettyRaftClient client = new NettyRaftClient(serverInfo.getHost()+":"+serverInfo.getPort());
-				clientList.add(client);
-			}
-		}
-	}*/
 }
 class RaftServerChannelHandler extends ChannelInitializer<SocketChannel>{
 
@@ -158,14 +127,26 @@ class RaftServerHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-		Thread.sleep(3000);
 		System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
-		Message ms = new Message();
+		Message message = JSON.parseObject(msg,Message.class);
+		switch (message.getReqType()) {
+		case MsgType.GET_LEADER:
+			InitSystemHandle initConfig = InitSystemHandle.getInstance();
+			for (int i = 0; i < initConfig.getConnVector().size(); i++) {
+				if(initConfig.getConnVector().get(i).getRole() == Role.LEADER){
+					
+				}
+			}
+			break;
+		default:
+			break;
+		}
+		/*Message ms = new Message();
 		ms.setReqType(MsgType.YES_LEADER);
 		ctx.channel().writeAndFlush(JSON.toJSONString(ms)+"\n");
 		if (!"OK".equals(msg)) {
 			//业务逻辑
-		}
+		}*/
 	}
 
 	@Override
@@ -182,13 +163,11 @@ class RaftServerHandler extends SimpleChannelInboundHandler<String> {
 				// ctx.channel().writeAndFlush("ping\n");
 			}
 		}
-		//super.userEventTriggered(ctx, evt); 
 	}
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		System.out.println("链接异常中断");
 		ctx.close();
-		//super.exceptionCaught(ctx, cause);
 	}
 
 }

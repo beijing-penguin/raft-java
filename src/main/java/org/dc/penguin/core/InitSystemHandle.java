@@ -6,12 +6,13 @@ import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import org.dc.penguin.core.raft.NettyRaftConnection;
+import org.dc.penguin.core.raft.LocalStateMachine;
 import org.dc.penguin.core.utils.ConfigManager;
-import org.dc.penguin.core.utils.Utils;
+import org.dc.penguin.core.utils.NettyConnection;
+import org.dc.penguin.core.utils.RaftUtils;
 
 public class InitSystemHandle {
-	public Vector<NettyRaftConnection> connVector = new Vector<NettyRaftConnection>();
+	private Vector<LocalStateMachine> connVector = new Vector<LocalStateMachine>();
 	public ExecutorService threadPool = Executors.newFixedThreadPool(10);
 
 	private static InitSystemHandle INSTANCE = new InitSystemHandle();
@@ -29,12 +30,22 @@ public class InitSystemHandle {
 				String host = value.split(":")[0];
 				int port = Integer.parseInt(value.split(":")[1]);
 
-				NettyRaftConnection connInfo = new NettyRaftConnection(host, port);
-				if((InetAddress.getByName(host).getHostAddress().equals("127.0.0.1") || Utils.getAllLocalHostIP().contains(host))){
-					connInfo.setLocalhost(true);
+				LocalStateMachine machine = new LocalStateMachine(host, port);
+				machine.setNettyConnection(new NettyConnection(host, port));
+				if((InetAddress.getByName(host).getHostAddress().equals("127.0.0.1") || RaftUtils.getAllLocalHostIP().contains(host))){
+					machine.setLocalhost(true);
 				}
-				connVector.add(connInfo);
+				connVector.add(machine);
 			}
 		}
+	}
+	public Vector<LocalStateMachine> getConnVector() throws Exception {
+		if(connVector.size()==0){
+			initConfig();
+		}
+		return connVector;
+	}
+	public void setConnVector(Vector<LocalStateMachine> connVector) {
+		this.connVector = connVector;
 	}
 }
