@@ -50,4 +50,12 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
+	<build>
+		<!--默认资源目录-->
+    <resources>  
+        <resource>  
+            <directory>src/main/resources</directory>  
+        </resource>  
+    </resources> 
+	</build>
 </project>

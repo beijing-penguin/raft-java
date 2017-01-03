@@ -2,10 +2,10 @@ package org.dc.penguin.core.raft;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.InitSystemHandle;
-import org.dc.penguin.core.entity.MachineInfo;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
 import org.dc.penguin.core.entity.Role;
@@ -23,8 +23,10 @@ public class LocalStateMachine {
 	private static Log LOG = LogFactory.getLog(LocalStateMachine.class);
 	private static InitSystemHandle initConfig = InitSystemHandle.getInstance();
 	
-	private MachineInfo machineInfo;
-	
+	private int role = Role.FOLLOWER;
+	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
+	private String host;
+	private int port;
 	private int voteNum;//票数
 	private boolean isLocalhost;
 
@@ -174,13 +176,5 @@ public class LocalStateMachine {
 
 	public void setData(Map<String, byte[]> data) {
 		this.data = data;
-	}
-
-	public MachineInfo getMachineInfo() {
-		return machineInfo;
-	}
-
-	public void setMachineInfo(MachineInfo machineInfo) {
-		this.machineInfo = machineInfo;
 	}
 }
