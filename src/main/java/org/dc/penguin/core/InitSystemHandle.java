@@ -31,7 +31,7 @@ public class InitSystemHandle {
 				int port = Integer.parseInt(value.split(":")[1]);
 
 				LocalStateMachine machine = new LocalStateMachine(host, port);
-				machine.setNettyConnection(new NettyConnection(host, port));
+				//machine.setNettyConnection(new NettyConnection(host, port));
 				if((InetAddress.getByName(host).getHostAddress().equals("127.0.0.1") || RaftUtils.getAllLocalHostIP().contains(host))){
 					machine.setLocalhost(true);
 				}

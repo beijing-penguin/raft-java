@@ -42,4 +42,9 @@ public class RaftMessageFactory {
 		msg.setBody((localStateMachine.getHost()+":"+localStateMachine.getPort()).getBytes());
 		return msg;
 	}
+	public static Message createPingMsg() {
+		Message msg = new Message();
+		msg.setReqType(MsgType.RAFT_PING);
+		return msg;
+	}
 }

@@ -8,10 +8,7 @@ import org.dc.penguin.core.InitSystemHandle;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
 import org.dc.penguin.core.entity.Role;
-import org.dc.penguin.core.utils.RaftUtils;
-
 import com.alibaba.fastjson.JSON;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -56,15 +53,19 @@ public class NettyRaftServer {
 				LocalStateMachine machine = init.getConnVector().get(i);
 				if(machine.isLocalhost()){
 					bootstrap.bind(machine.getPort()).sync();
+					//machine.startLeaderListen();
 					System.out.println("Server start Successful,Port="+machine.getPort());
 					//告诉leader， 我来了。如果得到主的响应，则同步主的数据。主服务自动和该服务保持心跳联系。
 					try{
 						String leaderInnfo = machine.getOnlineLeader();
 						if(leaderInnfo!=null){
 							//同步集群信息和data数据
-							machine.syncAllClusterInfo(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
+							machine.syncAllClusterInfoFromLeader(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
 							//通知领导，数据已同步完，加入集群
 							machine.joinLeaderCluster(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
+						}else{
+							//开始选举。我发现集群里没有leader，那么我就主动通知所有无业游民开始选举
+							machine.sendPollInvitation();
 						}
 					} catch (Exception e) {
 						LOG.error("",e);

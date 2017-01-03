@@ -1,6 +1,8 @@
 package org.dc.raft;
 
 
+import java.util.concurrent.Callable;
+
 import junit.framework.TestCase;
 
 /**
@@ -9,12 +11,17 @@ import junit.framework.TestCase;
 public class Test2  extends TestCase{
 
 	public static void main(String[] args) {
-		//NettyClient client = new NettyClient("localhost:9001");
-		byte[] b =null;
-		try {
-			System.out.println(new String(b));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		new Runnable() {
+			
+			public void run() {
+			}
+		};
+		new Callable<String>() {
+
+			public String call() throws Exception {
+				System.out.println(111);
+				return null;
+			}
+		};
 	}
 }

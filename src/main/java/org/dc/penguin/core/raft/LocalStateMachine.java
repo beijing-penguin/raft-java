@@ -22,20 +22,46 @@ import com.alibaba.fastjson.JSON;
 public class LocalStateMachine {
 	private static Log LOG = LogFactory.getLog(LocalStateMachine.class);
 	private static InitSystemHandle initConfig = InitSystemHandle.getInstance();
-	
-	private int role = Role.FOLLOWER;
+
+	private int role = Role.NOMAD;
 	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
 	private String host;
 	private int port;
 	private int voteNum;//票数
 	private boolean isLocalhost;
 
-
-	private NettyConnection nettyConnection;
-
 	public LocalStateMachine(String host ,int port ){
 		this.host = host;
 		this.port = port;
+		
+		new Thread(new Runnable() {
+			public void run() {
+				while(true){
+					try {
+						if(role==Role.LEADER){
+							for (int i = 0; i < initConfig.getConnVector().size(); i++) {
+								LocalStateMachine machine = initConfig.getConnVector().get(i);
+								NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
+								Message message = null;
+								try{
+									message = connection.sendMessage(RaftMessageFactory.createPingMsg());
+								}catch (Exception e) {
+									LOG.info("",e);
+								}finally{
+									connection.close();
+								}
+								if(message == null || message.getReqType()!=MsgType.SUCCESS){
+									initConfig.getConnVector().remove(machine);
+								}
+							}
+						}
+						Thread.sleep(3000);
+					} catch (Exception e) {
+						LOG.info("",e);
+					}
+				}
+			}
+		});
 	}
 
 	public void sendPollInvitation() throws Exception {
@@ -53,27 +79,6 @@ public class LocalStateMachine {
 			}
 		}
 	}
-
-	/*public boolean getLeaderAndSyncData() {
-		boolean haveLeader = false;
-		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-			try {
-				LocalStateMachine machine = initConfig.getConnVector().get(i);
-				NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
-				Message rt_msg = connection.sendMessage(RaftMessageFactory.createGetLeaderMsg());
-
-				if(rt_msg.getReqType()==MsgType.YES_LEADER){
-					data.clear();
-					data = JSON.parseObject(rt_msg.getBody(), Map.class);
-					haveLeader = true;
-					break;
-				}
-			} catch (Exception e) {
-				LOG.info("",e);
-			}
-		}
-		return haveLeader;
-	}*/
 	public String getOnlineLeader() throws Exception {
 		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
 			try {
@@ -91,17 +96,6 @@ public class LocalStateMachine {
 		return null;
 	}
 
-	public boolean sendAllMachineInfo() throws Exception{
-		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-			LocalStateMachine machine = initConfig.getConnVector().get(i);
-			NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
-			Message rt_msg = connection.sendMessage(RaftMessageFactory.createMachineInfo(this));
-			if(rt_msg.getReqType()!=MsgType.SUCCESS){
-				return false;
-			}
-		}
-		return true;
-	}
 	public void joinLeaderCluster(String host,int port) throws Exception {
 		NettyConnection connection = new NettyConnection(host,port);
 		connection.sendMessage(RaftMessageFactory.createjoinLeaderMsg(this));
@@ -113,7 +107,7 @@ public class LocalStateMachine {
 	 * @throws Exception
 	 */
 	@SuppressWarnings("unchecked")
-	public void syncAllClusterInfo(String host, int port) throws Exception {
+	public void syncAllClusterInfoFromLeader(String host, int port) throws Exception {
 		NettyConnection connection = new NettyConnection(host,port);
 		Message message = connection.sendMessage(RaftMessageFactory.createSyncAllClusterInfoMsg(this));
 		String hostInfo = new String(message.getBody()).split(";")[0];
@@ -121,7 +115,7 @@ public class LocalStateMachine {
 		for (int i = 0; i < hostInfo.split(",").length; i++) {
 			String hs = hostInfo.split(",")[i].split(":")[0];
 			int pt = Integer.parseInt(hostInfo.split(",")[i].split(":")[1]);
-			
+
 			LocalStateMachine machine = new LocalStateMachine(hs, pt);
 			initConfig.getConnVector().add(machine);
 		}
@@ -153,15 +147,6 @@ public class LocalStateMachine {
 	public void setRole(int role) {
 		this.role = role;
 	}
-
-	public NettyConnection getNettyConnection() {
-		return nettyConnection;
-	}
-
-	public void setNettyConnection(NettyConnection nettyConnection) {
-		this.nettyConnection = nettyConnection;
-	}
-
 	public boolean isLocalhost() {
 		return isLocalhost;
 	}

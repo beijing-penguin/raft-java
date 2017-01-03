@@ -3,6 +3,8 @@ package org.dc.penguin.core.utils;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.entity.Message;
 
 import com.alibaba.fastjson.JSON;
@@ -24,6 +26,7 @@ import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
 public class NettyConnection {
+	private static Log LOG = LogFactory.getLog(NettyConnection.class);
 	private static EventLoopGroup group = new NioEventLoopGroup();
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
 	private Message resultMessage;
@@ -95,6 +98,16 @@ public class NettyConnection {
 		downLatch.await(3, TimeUnit.SECONDS);
 		return resultMessage;
 	}
+	public void close() {
+		if(channel!=null){
+			try {
+				channel.close().sync();
+			} catch (Exception e) {
+				LOG.info("",e);
+			}
+		}
+	}
+	
 	public String getHost() {
 		return host;
 	}
