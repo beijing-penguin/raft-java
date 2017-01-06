@@ -1,8 +1,8 @@
 package org.dc.raft;
 
 
-import java.util.concurrent.Callable;
-
+import java.util.LinkedList;
+import java.util.List;
 import junit.framework.TestCase;
 
 /**
@@ -11,17 +11,7 @@ import junit.framework.TestCase;
 public class Test2  extends TestCase{
 
 	public static void main(String[] args) {
-		new Runnable() {
-			
-			public void run() {
-			}
-		};
-		new Callable<String>() {
-
-			public String call() throws Exception {
-				System.out.println(111);
-				return null;
-			}
-		};
+		List l = new LinkedList();
+		l.add("a");
 	}
 }

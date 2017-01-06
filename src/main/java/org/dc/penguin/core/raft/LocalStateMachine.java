@@ -23,7 +23,7 @@ public class LocalStateMachine {
 	private static Log LOG = LogFactory.getLog(LocalStateMachine.class);
 	private static InitSystemHandle initConfig = InitSystemHandle.getInstance();
 
-	private int role = Role.NOMAD;
+	private int role = Role.FOLLOWER;
 	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
 	private String host;
 	private int port;
@@ -40,20 +40,26 @@ public class LocalStateMachine {
 					try {
 						if(role==Role.LEADER){
 							for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-								LocalStateMachine machine = initConfig.getConnVector().get(i);
-								NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
-								Message message = null;
-								try{
-									message = connection.sendMessage(RaftMessageFactory.createPingMsg());
-								}catch (Exception e) {
-									LOG.info("",e);
-								}finally{
-									connection.close();
-								}
-								if(message == null || message.getReqType()!=MsgType.SUCCESS){
-									initConfig.getConnVector().remove(machine);
-								}
+								final int index = i;
+								new Thread(new Runnable() {
+									public void run() {
+										
+										//Message message = null;
+										NettyConnection connection = null;
+										try{
+											LocalStateMachine machine = initConfig.getConnVector().get(index);
+											connection = new NettyConnection(machine.getHost(), machine.getPort());
+											connection.sendMessage(RaftMessageFactory.createPingMsg());
+										}catch (Exception e) {
+											LOG.info("",e);
+										}finally{
+											connection.close();
+										}
+									}
+								}).start();
 							}
+						}else if(role==Role.FOLLOWER){
+							
 						}
 						Thread.sleep(3000);
 					} catch (Exception e) {

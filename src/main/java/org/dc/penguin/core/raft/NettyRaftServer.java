@@ -64,7 +64,7 @@ public class NettyRaftServer {
 							//通知领导，数据已同步完，加入集群
 							machine.joinLeaderCluster(leaderInnfo.split(":")[0],Integer.parseInt(leaderInnfo.split(":")[1]));
 						}else{
-							//开始选举。我发现集群里没有leader，那么我就主动通知所有无业游民开始选举
+							//开始选举。我发现集群里没有leader，那么我就主动通知所有人，开始选举
 							machine.sendPollInvitation();
 						}
 					} catch (Exception e) {

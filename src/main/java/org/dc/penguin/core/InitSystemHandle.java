@@ -40,9 +40,6 @@ public class InitSystemHandle {
 		}
 	}
 	public Vector<LocalStateMachine> getConnVector() throws Exception {
-		if(connVector.size()==0){
-			initConfig();
-		}
 		return connVector;
 	}
 	public void setConnVector(Vector<LocalStateMachine> connVector) {
