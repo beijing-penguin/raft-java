@@ -1,6 +1,6 @@
 package org.dc.penguin.core.utils;
 
-import org.dc.penguin.core.InitSystemHandle;
+import org.dc.penguin.core.ConfigInfo;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
 import org.dc.penguin.core.raft.LocalStateMachine;
@@ -8,7 +8,7 @@ import org.dc.penguin.core.raft.LocalStateMachine;
 import com.alibaba.fastjson.JSON;
 
 public class RaftMessageFactory {
-	public static String createSendPollMsg(){
+	/*public static String createSendPollMsg(){
 		Message msg = new Message();
 		msg.setReqType(MsgType.POLL_ME);
 		return msg.toJSONString();
@@ -46,5 +46,5 @@ public class RaftMessageFactory {
 		Message msg = new Message();
 		msg.setReqType(MsgType.RAFT_PING);
 		return msg;
-	}
+	}*/
 }

@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.InitSystemHandle;
+import org.dc.penguin.core.ConfigInfo;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
 import org.dc.penguin.core.entity.Role;
@@ -33,7 +33,7 @@ public class NettyRaftServer {
 	private EventLoopGroup bossGroup = new NioEventLoopGroup();
 	private EventLoopGroup workerGroup = new NioEventLoopGroup();
 	private ServerBootstrap bootstrap = new ServerBootstrap();
-	private static InitSystemHandle init = InitSystemHandle.getInstance();
+	private static ConfigInfo init = ConfigInfo.getInstance();
 	public static void main(String[] args) {
 		try {
 			init.initConfig();
@@ -51,11 +51,13 @@ public class NettyRaftServer {
 			.childHandler(new RaftServerChannelHandler());
 			for (int i = 0; i < init.getConnVector().size(); i++) {
 				LocalStateMachine machine = init.getConnVector().get(i);
+				machine.setRole(Role.CONDIDATE);
 				if(machine.isLocalhost()){
 					bootstrap.bind(machine.getPort()).sync();
-					//machine.startLeaderListen();
 					System.out.println("Server start Successful,Port="+machine.getPort());
-					//告诉leader， 我来了。如果得到主的响应，则同步主的数据。主服务自动和该服务保持心跳联系。
+				}
+
+				/*//告诉leader， 我来了。如果得到主的响应，则同步主的数据。主服务自动和该服务保持心跳联系。
 					try{
 						String leaderInnfo = machine.getOnlineLeader();
 						if(leaderInnfo!=null){
@@ -69,33 +71,18 @@ public class NettyRaftServer {
 						}
 					} catch (Exception e) {
 						LOG.error("",e);
-					}
-				}
+					}*/
 			}
-			/*LocalStateMachine machine = init.connVector.get(0);
-			//开始获取领导
-			if(init.connVector.get(0).getLeaderAndSyncData()){
-				//开始同步集群信息和存储数据
-				if(machine.sendAllMachineInfo()){
+			//随机选择一个人优先发起投票
+			init.getConnVector().get(0).sendPollInvitation();
+			//投票完了，开始统计票数，并设置role=FOLLOWER
+			for (int i = 0; i < init.getConnVector().size(); i++) {
+				LocalStateMachine machine = init.getConnVector().get(i);
+				if(i==0){
 					machine.setRole(Role.LEADER);
 				}
-			}*/
-			//开始监听leader的心跳
-			/*new Thread(new Runnable() {
-				public void run() {
-					while(true){
-						try {
-							Thread.sleep(3000);
-							if(RaftUtils.getOnlineLeader() == null){
-								//设置领导
-								
-							}
-						} catch (InterruptedException e) {
-							LOG.info("",e);
-						}
-					}
-				}
-			}).start();*/
+				machine.sendPollInvitation();
+			}
 		}catch (Exception e) {
 			workerGroup.shutdownGracefully();
 			bossGroup.shutdownGracefully();
@@ -110,6 +97,7 @@ class RaftServerChannelHandler extends ChannelInitializer<SocketChannel>{
 		ch.config().setAllowHalfClosure(true);
 		ChannelPipeline pipeline = ch.pipeline();
 
+		//IdleStateHandler 与客户端链接后，根据超出配置的时间自动触发userEventTriggered
 		//readerIdleTime服务端长时间没有读到数据，则为读空闲，触发读空闲监听，并自动关闭链路连接，周期性按readerIdleTime的超时间触发空闲监听方法
 		//writerIdleTime服务端长时间没有发送写请求，则为空闲，触发写空闲监听,空闲期间，周期性按writerIdleTime的超时间触发空闲监听方法
 		//allIdleTime 服务端在allIdleTime时间内未接收到客户端消息，或者，也未去向客户端发送消息，则触发周期性操作
@@ -132,10 +120,10 @@ class RaftServerHandler extends SimpleChannelInboundHandler<String> {
 		Message message = JSON.parseObject(msg,Message.class);
 		switch (message.getReqType()) {
 		case MsgType.GET_LEADER:
-			InitSystemHandle initConfig = InitSystemHandle.getInstance();
+			ConfigInfo initConfig = ConfigInfo.getInstance();
 			for (int i = 0; i < initConfig.getConnVector().size(); i++) {
 				if(initConfig.getConnVector().get(i).getRole() == Role.LEADER){
-					
+
 				}
 			}
 			break;
