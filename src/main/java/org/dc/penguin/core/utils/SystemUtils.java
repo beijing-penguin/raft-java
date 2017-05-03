@@ -11,7 +11,7 @@ import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.ConfigInfo;
 import org.dc.penguin.core.entity.Message;
 import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.entity.Role;
+import org.dc.penguin.core.entity.RoleType;
 import org.dc.penguin.core.raft.LocalStateMachine;
 import org.dc.penguin.core.raft.NettyRaftServer;
 

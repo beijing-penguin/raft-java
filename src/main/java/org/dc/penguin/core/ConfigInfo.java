@@ -3,27 +3,23 @@ package org.dc.penguin.core;
 import java.net.InetAddress;
 import java.util.Properties;
 import java.util.Vector;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import org.dc.penguin.core.raft.LocalStateMachine;
 import org.dc.penguin.core.utils.ConfigManager;
 import org.dc.penguin.core.utils.SystemUtils;
 
 public class ConfigInfo {
-	private Vector<LocalStateMachine> electionServerVector = new Vector<LocalStateMachine>();
-	private Vector<LocalStateMachine> dataServerVector = new Vector<LocalStateMachine>();
-	public ExecutorService threadPool = Executors.newFixedThreadPool(10);
+	public static Vector<LocalStateMachine> electionServerVector = new Vector<LocalStateMachine>();
+	public static Vector<LocalStateMachine> dataServerVector = new Vector<LocalStateMachine>();
 
 	private static ConfigInfo INSTANCE = new ConfigInfo();
 	private ConfigInfo(){}
 	public static ConfigInfo getInstance(){
 		return INSTANCE;
 	}
-	public void initConfig() throws Exception{
+	public static void initConfig() throws Exception{
 		Properties prop = ConfigManager.getInstance().loadProps("config.properties");
 		for (Object key : prop.keySet()) {
-			System.out.println(key);
 			String pro_key = key.toString();
 			if(pro_key.startsWith("server")){
 				String[] value_arr = prop.getProperty(pro_key).split(":");
@@ -48,11 +44,5 @@ public class ConfigInfo {
 				dataServerVector.add(machine);
 			}
 		}
-	}
-	public Vector<LocalStateMachine> getConnVector() throws Exception {
-		return electionServerVector;
-	}
-	public void setConnVector(Vector<LocalStateMachine> electionServerVector) {
-		this.electionServerVector = electionServerVector;
 	}
 }

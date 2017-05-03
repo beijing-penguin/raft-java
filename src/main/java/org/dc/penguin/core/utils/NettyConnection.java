@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.entity.Message;
+import org.dc.penguin.core.entity.MsgType;
 
 import com.alibaba.fastjson.JSON;
 
@@ -95,6 +96,13 @@ public class NettyConnection {
 		resultMessage = null;
 		Channel channel = getChannel();
 		channel.writeAndFlush(msg.toJSONString());
+		downLatch.await(3, TimeUnit.SECONDS);
+		return resultMessage;
+	}
+	public Message sendData(Object data) throws Exception{
+		resultMessage = null;
+		Channel channel = getChannel();
+		channel.writeAndFlush(data);
 		downLatch.await(3, TimeUnit.SECONDS);
 		return resultMessage;
 	}
