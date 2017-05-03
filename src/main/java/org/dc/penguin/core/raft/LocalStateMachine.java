@@ -8,11 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.ConfigInfo;
-import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.utils.NettyConnection;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -93,7 +90,7 @@ public class LocalStateMachine {
 		ServerBootstrap bootstrap = new ServerBootstrap();
 		
 		try {
-			Channel channel = bootstrap.group(bossGroup,workerGroup)
+			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childHandler(new ElectionServerChannelHandler()).bind(port).sync().channel();
