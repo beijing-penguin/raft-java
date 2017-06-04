@@ -28,25 +28,19 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
 /**
- * 本地状态机
+ * 本地机器对象
  * @author DC
  *
  */
-public class LocalStateMachine {
-	private static Log LOG = LogFactory.getLog(LocalStateMachine.class);
-	
-	private static LocalStateMachine localStateMachine = new LocalStateMachine();
-	public static LocalStateMachine getInstance(){
-		return localStateMachine;
-	}
-	private int role = 0;
+public class LocalMachine {
+	private static Log LOG = LogFactory.getLog(LocalMachine.class);
 	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
 	private String host;
-	private int port;
+	private int dataServerPort;
+	private int electionServerPort;
 	private AtomicInteger haveVoteNum;//已获得的票数
-	private AtomicInteger availableVoteNum;//自己可用票数
 	private boolean isLocalhost;
-
+	
 	/**
 	 * 想所有人发起投票
 	 * @throws Exception
@@ -65,12 +59,12 @@ public class LocalStateMachine {
 			}
 		}
 	}*/
-	
+
 	public void startDataServer(int port){
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		ServerBootstrap bootstrap = new ServerBootstrap();
-		
+
 		try {
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
@@ -84,25 +78,28 @@ public class LocalStateMachine {
 			bossGroup.shutdownGracefully();
 		}
 	}
-	public void startElectionServer(int port){
+	public void startElectionServer(int port) throws Exception{
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		ServerBootstrap bootstrap = new ServerBootstrap();
-		
+
 		try {
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
 			.childHandler(new ElectionServerChannelHandler()).bind(port).sync().channel();
 			System.out.println("选举服务开启成功，port="+port);
-			
+
 			//向其他人询问是否存在leader，所谓其他人就是端口不等于当前端口，或者ip不等于本地的人。
-			for (LocalStateMachine localStateMachine : ConfigInfo.electionServerVector) {
-				if((port!=localStateMachine.getPort() && localStateMachine.isLocalhost==false) || (port==localStateMachine.getPort() && localStateMachine.isLocalhost==false)){
-					//获取领导请求，发送getleader请求，返回当前集群可用的ip和host集合，并创建和其他集群节点的管道连接
-					
-					
-					
+			for (LocalMachine localStateMachine : ConfigInfo.getMachineVector()) {
+				if((localStateMachine.isLocalhost==true&&port!=localStateMachine.getElectionServerPort())||localStateMachine.isLocalhost==false){
+					//获取领导请求，发送getleader请求
+					/*try {
+						NettyConnection conn = new NettyConnection(localStateMachine.getHost(), localStateMachine.getElectionServerPort());
+						Message message = conn.sendMessage(new Message(MsgType.GET_LEADER));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}*/
 					//向其他ip同伴发送获取领导的协议请求
 					/*NettyConnection conn = new NettyConnection(localStateMachine.getHost(), localStateMachine.getPort());
 					try {
@@ -114,7 +111,7 @@ public class LocalStateMachine {
 					}*/
 				}
 			}
-			
+
 		} catch (InterruptedException e) {
 			LOG.error("",e);
 			bootstrap = null;
@@ -123,11 +120,12 @@ public class LocalStateMachine {
 		}
 	}
 	/*public String getOnlineLeader() throws Exception {
-		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
+		for (LocalMachine machine : ConfigInfo.machineVector) {
 			try {
-				LocalStateMachine machine = initConfig.getConnVector().get(i);
-				NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
-				Message rt_msg = connection.sendMessage(RaftMessageFactory.createGetLeaderMsg());
+				NettyConnection connection = new NettyConnection(machine.getHost(), machine.getElectionServerPort());
+				Message arg_msg = new Message(MsgType.GET_LEADER);
+				arg_msg.setBody((machine.getHost()+":"+machine.getElectionServerPort()).getBytes());
+				Message rt_msg = connection.sendMessage(arg_msg);
 
 				if(rt_msg.getReqType()==MsgType.SUCCESS){
 					return new String(rt_msg.getBody());
@@ -168,27 +166,22 @@ public class LocalStateMachine {
 		data.clear();
 		data.putAll((Map<String, byte[]>) dataMap);
 	}*/
-	
-	
-	
+
+
+
 	public String getHost() {
 		return host;
 	}
 	public void setHost(String host) {
 		this.host = host;
 	}
-	public int getPort() {
-		return port;
+	public int getDataServerPort() {
+		return dataServerPort;
 	}
-	public void setPort(int port) {
-		this.port = port;
+	public void setDataServerPort(int dataServerPort) {
+		this.dataServerPort = dataServerPort;
 	}
-	public int getRole() {
-		return role;
-	}
-	public void setRole(int role) {
-		this.role = role;
-	}
+	
 	public boolean isLocalhost() {
 		return isLocalhost;
 	}
@@ -210,11 +203,11 @@ public class LocalStateMachine {
 	public void setHaveVoteNum(AtomicInteger haveVoteNum) {
 		this.haveVoteNum = haveVoteNum;
 	}
-	public AtomicInteger getAvailableVoteNum() {
-		return availableVoteNum;
+	public int getElectionServerPort() {
+		return electionServerPort;
 	}
-	public void setAvailableVoteNum(AtomicInteger availableVoteNum) {
-		this.availableVoteNum = availableVoteNum;
+	public void setElectionServerPort(int electionServerPort) {
+		this.electionServerPort = electionServerPort;
 	}
 }
 
@@ -245,7 +238,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-	/*	System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
+		/*	System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
 		Message message = JSON.parseObject(msg,Message.class);
 		switch (message.getReqType()) {
 		case MsgType.GET_LEADER:
@@ -317,7 +310,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-	/*	System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
+		/*	System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
 		Message message = JSON.parseObject(msg,Message.class);
 		switch (message.getReqType()) {
 		case MsgType.GET_LEADER:

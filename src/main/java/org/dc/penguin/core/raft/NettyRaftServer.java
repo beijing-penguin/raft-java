@@ -5,9 +5,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.ConfigInfo;
-import org.dc.penguin.core.entity.Message;
-import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.entity.RoleType;
+import org.dc.penguin.core.pojo.Message;
+import org.dc.penguin.core.pojo.MsgType1;
+import org.dc.penguin.core.pojo.RoleType;
+
 import com.alibaba.fastjson.JSON;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelHandlerContext;
@@ -33,16 +34,6 @@ public class NettyRaftServer {
 	private EventLoopGroup bossGroup = new NioEventLoopGroup();
 	private EventLoopGroup workerGroup = new NioEventLoopGroup();
 	private ServerBootstrap bootstrap = new ServerBootstrap();
-	private static ConfigInfo init = ConfigInfo.getInstance();
-	public static void main(String[] args) {
-		try {
-			init.initConfig();
-			NettyRaftServer server = new NettyRaftServer();
-			server.startServer();
-		} catch (Exception e) {
-			LOG.info("",e);
-		}
-	}
 	public void startServer(){
 		try{
 			/*bootstrap.group(bossGroup,workerGroup)

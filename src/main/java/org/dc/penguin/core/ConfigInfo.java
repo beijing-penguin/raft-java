@@ -1,48 +1,52 @@
 package org.dc.penguin.core;
 
 import java.net.InetAddress;
-import java.util.Properties;
+import java.util.Enumeration;
 import java.util.Vector;
 
-import org.dc.penguin.core.raft.LocalStateMachine;
+import org.dc.penguin.core.raft.LocalMachine;
 import org.dc.penguin.core.utils.ConfigManager;
+import org.dc.penguin.core.utils.PropertiesUtil;
 import org.dc.penguin.core.utils.SystemUtils;
 
 public class ConfigInfo {
-	public static Vector<LocalStateMachine> electionServerVector = new Vector<LocalStateMachine>();
-	public static Vector<LocalStateMachine> dataServerVector = new Vector<LocalStateMachine>();
-
-	private static ConfigInfo INSTANCE = new ConfigInfo();
-	private ConfigInfo(){}
-	public static ConfigInfo getInstance(){
-		return INSTANCE;
-	}
-	public static void initConfig() throws Exception{
-		Properties prop = ConfigManager.getInstance().loadProps("config.properties");
-		for (Object key : prop.keySet()) {
+	private static Vector<LocalMachine> machineVector = new Vector<LocalMachine>();
+	public static Vector<LocalMachine> getMachineVector() throws Exception{
+		machineVector.clear();
+		PropertiesUtil prop = ConfigManager.getInstance().loadProps("config.properties");
+		Enumeration<Object> enum_obj = prop.keys();
+		while (enum_obj.hasMoreElements()) {
+			String pro_key =  enum_obj.nextElement().toString();
+			if(pro_key.startsWith("server")){
+				String[] value_arr = prop.getProperty(pro_key).split(":");
+				String host = value_arr[0];
+				
+				LocalMachine machine = new LocalMachine();
+				machine.setDataServerPort(Integer.parseInt(value_arr[1]));
+				machine.setElectionServerPort(Integer.parseInt(value_arr[2]));
+				machine.setHost(host);
+				if((InetAddress.getByName(value_arr[0]).getHostAddress().equals("127.0.0.1") || SystemUtils.getAllLocalHostIP().contains(value_arr[0]))){
+					machine.setLocalhost(true);
+				}
+				machineVector.add(machine);
+			}
+		}
+		/*for (Enumeration<Object> key : ) {
 			String pro_key = key.toString();
 			if(pro_key.startsWith("server")){
 				String[] value_arr = prop.getProperty(pro_key).split(":");
 				String host = value_arr[0];
 				
-				LocalStateMachine machine = new LocalStateMachine();
-				machine.setPort(Integer.parseInt(value_arr[1]));
+				LocalMachine machine = new LocalMachine();
+				machine.setDataServerPort(Integer.parseInt(value_arr[1]));
+				machine.setElectionServerPort(Integer.parseInt(value_arr[2]));
 				machine.setHost(host);
 				if((InetAddress.getByName(value_arr[0]).getHostAddress().equals("127.0.0.1") || SystemUtils.getAllLocalHostIP().contains(value_arr[0]))){
 					machine.setLocalhost(true);
 				}
-				
-				LocalStateMachine machine2 = new LocalStateMachine();
-				machine2.setPort(Integer.parseInt(value_arr[2]));
-				machine2.setHost(host);
-				if((InetAddress.getByName(host).getHostAddress().equals("127.0.0.1") || SystemUtils.getAllLocalHostIP().contains(host))){
-					machine2.setLocalhost(true);
-				}
-				
-				
-				electionServerVector.add(machine2);
-				dataServerVector.add(machine);
+				machineVector.add(machine);
 			}
-		}
+		}*/
+		return machineVector;
 	}
 }

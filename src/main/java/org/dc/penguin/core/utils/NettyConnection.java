@@ -1,12 +1,14 @@
 package org.dc.penguin.core.utils;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.entity.Message;
-import org.dc.penguin.core.entity.MsgType;
+import org.dc.penguin.core.pojo.Message;
 
 import com.alibaba.fastjson.JSON;
 
@@ -26,16 +28,18 @@ import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
 
-public class NettyConnection {
+public class NettyConnection{
 	private static Log LOG = LogFactory.getLog(NettyConnection.class);
-	private static EventLoopGroup group = new NioEventLoopGroup();
+	
+	private static Map<String, CountDownLatch> syncMap = new ConcurrentHashMap<String, CountDownLatch>();
+	private long readTimeout = 3*1000;//默认3秒
+	private EventLoopGroup group = new NioEventLoopGroup(1);
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
 	private Message resultMessage;
-	private CountDownLatch downLatch = new CountDownLatch(1);
-	
 	private String host;
 	private int port;
 	private Channel channel;
+	private String reqId;
 	
 	public NettyConnection(String host,int port){
 		this.host = host;
@@ -57,7 +61,7 @@ public class NettyConnection {
 					@Override
 					protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
 						resultMessage = JSON.parseObject(msg, Message.class);
-						downLatch.countDown();
+						syncMap.get(reqId).countDown();
 					}
 
 					@Override
@@ -93,17 +97,18 @@ public class NettyConnection {
 		return channel;
 	}
 	public Message sendMessage(Message msg) throws Exception{
+		reqId = UUID.randomUUID().toString();
+		syncMap.put(reqId, new CountDownLatch(1));
 		resultMessage = null;
-		Channel channel = getChannel();
-		channel.writeAndFlush(msg.toJSONString());
-		downLatch.await(3, TimeUnit.SECONDS);
-		return resultMessage;
-	}
-	public Message sendData(Object data) throws Exception{
-		resultMessage = null;
-		Channel channel = getChannel();
-		channel.writeAndFlush(data);
-		downLatch.await(3, TimeUnit.SECONDS);
+		try{
+			Channel channel = getChannel();
+			channel.writeAndFlush(msg.toJSONString());
+			syncMap.get(reqId).await(readTimeout, TimeUnit.MILLISECONDS);
+		}catch (Exception e) {
+			throw e;
+		}finally{
+			syncMap.remove(reqId);
+		}
 		return resultMessage;
 	}
 	public void close() {
@@ -113,6 +118,12 @@ public class NettyConnection {
 			} catch (Exception e) {
 				LOG.info("",e);
 			}
+		}
+		boot = null;
+		try {
+			group.shutdownGracefully().sync();
+		} catch (InterruptedException e) {
+			LOG.info("",e);
 		}
 	}
 	
@@ -130,5 +141,11 @@ public class NettyConnection {
 
 	public void setPort(int port) {
 		this.port = port;
+	}
+	public long getReadTimeout() {
+		return readTimeout;
+	}
+	public void setReadTimeout(long readTimeout) {
+		this.readTimeout = readTimeout;
 	}
 }

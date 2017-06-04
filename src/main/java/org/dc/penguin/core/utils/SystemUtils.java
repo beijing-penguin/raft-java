@@ -9,15 +9,10 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.ConfigInfo;
-import org.dc.penguin.core.entity.Message;
-import org.dc.penguin.core.entity.MsgType;
-import org.dc.penguin.core.entity.RoleType;
-import org.dc.penguin.core.raft.LocalStateMachine;
 import org.dc.penguin.core.raft.NettyRaftServer;
 
 public class SystemUtils {
 	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
-	private static ConfigInfo initConfig = ConfigInfo.getInstance();
 	/** 
 	 * 获取本机所有IP 
 	 * @throws Exception 

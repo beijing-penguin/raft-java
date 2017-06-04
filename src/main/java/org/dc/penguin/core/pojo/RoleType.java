@@ -1,4 +1,4 @@
-package org.dc.penguin.core.entity;
+package org.dc.penguin.core.pojo;
 
 public interface RoleType {
 	public static int FOLLOWER = 1;//候选人

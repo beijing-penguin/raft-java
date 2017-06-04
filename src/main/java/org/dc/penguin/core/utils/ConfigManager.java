@@ -127,7 +127,7 @@ public class ConfigManager {
 		}
 		return null;
 	}
-	public synchronized Properties loadProps(String proFileName) throws Exception {
+	public synchronized PropertiesUtil loadProps(String proFileName) throws Exception {
 		InputStream resource = null;
 		try {
 			ClassLoader currentCL = getBaseClassLoader();
@@ -136,14 +136,14 @@ public class ConfigManager {
 			} else {
 				resource = ClassLoader.getSystemResourceAsStream(proFileName);
 			}
-			Properties properties = new Properties();
-			LOG.info("init config "+proFileName);
+			PropertiesUtil properties = new PropertiesUtil(resource);
+			//LOG.info("init config "+proFileName);
 			properties.load(new InputStreamReader(resource, "UTF-8"));
 			/*if(proMap.containsKey(proFileName)){
 				throw new Exception("the file"+proFileName+" have repeat");
 			}*/
 			proMap.put(proFileName, properties);
-			LOG.info("Successfully  proFileName=" + proFileName + " load Properties:" + properties);
+			//LOG.info("Successfully  proFileName=" + proFileName + " load Properties:" + properties);
 			return properties;
 		} catch (Exception e) {
 			throw e;
