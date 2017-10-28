@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.ConfigInfo;
+import org.dc.penguin.core.pojo.RoleType;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelHandlerContext;
@@ -28,19 +28,18 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
 
 /**
- * 本地机器对象
+ * 本机器配置信息
  * @author DC
- *
  */
-public class LocalMachine {
-	private static Log LOG = LogFactory.getLog(LocalMachine.class);
+public class NodeConfig {
+	private static Log LOG = LogFactory.getLog(NodeConfig.class);
 	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
 	private String host;
 	private int dataServerPort;
 	private int electionServerPort;
 	private AtomicInteger haveVoteNum;//已获得的票数
 	private boolean isLocalhost;
-	
+	private AtomicInteger role = new AtomicInteger(RoleType.CONDIDATE);//当前身份
 	/**
 	 * 想所有人发起投票
 	 * @throws Exception
@@ -60,7 +59,7 @@ public class LocalMachine {
 		}
 	}*/
 
-	public void startDataServer(int port){
+	public void startDataServer(){
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		ServerBootstrap bootstrap = new ServerBootstrap();
@@ -69,8 +68,8 @@ public class LocalMachine {
 			bootstrap.group(bossGroup,workerGroup)
 			.channel(NioServerSocketChannel.class)
 			.option(ChannelOption.SO_BACKLOG, 1024)
-			.childHandler(new DataServerChannelHandler()).bind(port).sync();
-			System.out.println("数据通信服务开启成功，port="+port);
+			.childHandler(new DataServerChannelHandler()).bind(dataServerPort).sync();
+			System.out.println("数据通信服务开启成功，port="+dataServerPort);
 		} catch (InterruptedException e) {
 			LOG.error("",e);
 			bootstrap = null;
@@ -78,49 +77,62 @@ public class LocalMachine {
 			bossGroup.shutdownGracefully();
 		}
 	}
-	public void startElectionServer(int port) throws Exception{
-		EventLoopGroup bossGroup = new NioEventLoopGroup();
-		EventLoopGroup workerGroup = new NioEventLoopGroup();
-		ServerBootstrap bootstrap = new ServerBootstrap();
+	public void startElectionServer() throws Exception{
+		if(isLocalhost) {
 
-		try {
-			bootstrap.group(bossGroup,workerGroup)
-			.channel(NioServerSocketChannel.class)
-			.option(ChannelOption.SO_BACKLOG, 1024)
-			.childHandler(new ElectionServerChannelHandler()).bind(port).sync().channel();
-			System.out.println("选举服务开启成功，port="+port);
+			EventLoopGroup bossGroup = new NioEventLoopGroup();
+			EventLoopGroup workerGroup = new NioEventLoopGroup();
+			ServerBootstrap bootstrap = new ServerBootstrap();
 
-			//向其他人询问是否存在leader，所谓其他人就是端口不等于当前端口，或者ip不等于本地的人。
+			try {
+				bootstrap.group(bossGroup,workerGroup)
+				.channel(NioServerSocketChannel.class)
+				.option(ChannelOption.SO_BACKLOG, 1024)
+				.childHandler(new ElectionServerChannelHandler(this)).bind(electionServerPort).sync().channel();
+				System.out.println("选举通信服务开启成功，port="+electionServerPort);
+
+				//开启定时器
+				new Thread(new Runnable() {
+
+					@Override
+					public void run() {
+						while(true) {
+							
+						}
+					}
+				}).start();
+				/*//向其他人询问是否存在leader，所谓其他人就是端口不等于当前端口，或者ip不等于本地的人。
 			for (LocalMachine localStateMachine : ConfigInfo.getMachineVector()) {
 				if((localStateMachine.isLocalhost==true&&port!=localStateMachine.getElectionServerPort())||localStateMachine.isLocalhost==false){
 					//获取领导请求，发送getleader请求
-					/*try {
+					try {
 						NettyConnection conn = new NettyConnection(localStateMachine.getHost(), localStateMachine.getElectionServerPort());
 						Message message = conn.sendMessage(new Message(MsgType.GET_LEADER));
 					} catch (Exception e) {
 						e.printStackTrace();
-					}*/
+					}
 					//向其他ip同伴发送获取领导的协议请求
-					/*NettyConnection conn = new NettyConnection(localStateMachine.getHost(), localStateMachine.getPort());
+					NettyConnection conn = new NettyConnection(localStateMachine.getHost(), localStateMachine.getPort());
 					try {
 						conn.sendData(MsgType.GET_LEADER);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}finally{
 						conn.close();
-					}*/
+					}
 				}
-			}
+			}*/
 
-		} catch (InterruptedException e) {
-			LOG.error("",e);
-			bootstrap = null;
-			workerGroup.shutdownGracefully();
-			bossGroup.shutdownGracefully();
+			} catch (InterruptedException e) {
+				LOG.error("",e);
+				bootstrap = null;
+				workerGroup.shutdownGracefully();
+				bossGroup.shutdownGracefully();
+			}
 		}
 	}
 	/*public String getOnlineLeader() throws Exception {
-		for (LocalMachine machine : ConfigInfo.machineVector) {
+		for (LocalMachine machine : ConfigInfo.getMachineVector()) {
 			try {
 				NettyConnection connection = new NettyConnection(machine.getHost(), machine.getElectionServerPort());
 				Message arg_msg = new Message(MsgType.GET_LEADER);
@@ -181,7 +193,7 @@ public class LocalMachine {
 	public void setDataServerPort(int dataServerPort) {
 		this.dataServerPort = dataServerPort;
 	}
-	
+
 	public boolean isLocalhost() {
 		return isLocalhost;
 	}
@@ -209,10 +221,20 @@ public class LocalMachine {
 	public void setElectionServerPort(int electionServerPort) {
 		this.electionServerPort = electionServerPort;
 	}
+	public AtomicInteger getRole() {
+		return role;
+	}
+	public void setRole(AtomicInteger role) {
+		this.role = role;
+	}
 }
 
 
 class ElectionServerChannelHandler extends ChannelInitializer<SocketChannel>{
+	NodeConfig nodeConfig;
+	public ElectionServerChannelHandler(NodeConfig nodeConfig) {
+		this.nodeConfig = nodeConfig;
+	}
 
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {

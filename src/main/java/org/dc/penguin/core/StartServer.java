@@ -1,14 +1,13 @@
 package org.dc.penguin.core;
 
-import java.util.Vector;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
-import org.dc.penguin.core.pojo.MsgType1;
-import org.dc.penguin.core.raft.LocalMachine;
+import org.dc.penguin.core.pojo.RoleType;
+import org.dc.penguin.core.raft.NodeConfig;
 
 import com.alibaba.fastjson.JSON;
 
@@ -33,57 +32,111 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	private static Log LOG = LogFactory.getLog(StartServer.class);
 	public static void main(String[] args) throws Exception {
-		final Vector<LocalMachine> machineList = ConfigInfo.getMachineVector();
-		for (LocalMachine localMachine: ConfigInfo.getMachineVector()) {
-			if(localMachine.isLocalhost()){
-				EventLoopGroup bossGroup = new NioEventLoopGroup();
-				EventLoopGroup workerGroup = new NioEventLoopGroup();
-				ServerBootstrap bootstrap = new ServerBootstrap();
+		/*//1.启动定时器
+		Scanner sc = new Scanner(System.in);
+		while(true) {
+			String sys_inp = sc.nextLine();
+			if("close".equals(sys_inp) || "end".equals(sys_inp) || "quit".equals(sys_inp)) {
+				break;
+			}
+			if(sys_inp.startsWith("start")) {
+				String[] str_arr = sys_inp.split(" ");
+				if(str_arr.length==1) {
+					System.out.println("请输入端口号，如start 8880 7770");
+				}
+				for (int i = 1; i < str_arr.length; i++) {
+					//启动数据端口
+					EventLoopGroup bossGroup = new NioEventLoopGroup();
+					EventLoopGroup workerGroup = new NioEventLoopGroup();
+					ServerBootstrap bootstrap = new ServerBootstrap();
 
-				try {
-					DataServerChannelHandler channelHandler = new DataServerChannelHandler(localMachine);
-					channelHandler.setLocalMachine(localMachine);
-					bootstrap.group(bossGroup,workerGroup)
-					.channel(NioServerSocketChannel.class)
-					.option(ChannelOption.SO_BACKLOG, 1024)
-					.childHandler(channelHandler).bind(localMachine.getDataServerPort()).sync();
-					System.out.println("数据通信服务开启成功，port="+localMachine.getDataServerPort());
-				} catch (InterruptedException e) {
-					LOG.error("",e);
-					bootstrap = null;
-					workerGroup.shutdownGracefully();
-					bossGroup.shutdownGracefully();
+					try {
+						DataServerChannelHandler channelHandler = new DataServerChannelHandler(localMachine);
+						channelHandler.setLocalMachine(localMachine);
+						bootstrap.group(bossGroup,workerGroup)
+						.channel(NioServerSocketChannel.class)
+						.option(ChannelOption.SO_BACKLOG, 1024)
+						.childHandler(channelHandler).bind(localMachine.getDataServerPort()).sync();
+						System.out.println("数据通信服务开启成功，port="+localMachine.getDataServerPort());
+					} catch (InterruptedException e) {
+						LOG.error("",e);
+						bootstrap = null;
+						workerGroup.shutdownGracefully();
+						bossGroup.shutdownGracefully();
+					}
+					//启动选举端口
+					
 				}
 			}
+		}*/
+		for (NodeConfig nodeConfig: ConfigInfo.getNodeConfigList()) {
+			EventLoopGroup bossGroup = new NioEventLoopGroup();
+			EventLoopGroup workerGroup = new NioEventLoopGroup();
+			ServerBootstrap bootstrap = new ServerBootstrap();
+			int port = nodeConfig.getDataServerPort();
+			System.out.print("正在启动数据通信服务端口："+port);
+			try {
+				bootstrap.group(bossGroup,workerGroup)
+				.channel(NioServerSocketChannel.class)
+				.option(ChannelOption.SO_BACKLOG, 1024)
+				.childHandler(new DataServerChannelHandler(nodeConfig)).bind(nodeConfig.getDataServerPort()).sync();
+				System.out.print("开启成功!");
+			} catch (Exception e) {
+				System.out.print("开启失败!");
+				LOG.error("",e);
+				bootstrap = null;
+				workerGroup.shutdownGracefully();
+				bossGroup.shutdownGracefully();
+			}
+			System.out.println();
 		}
-		for (int i = 0; i < machineList.size(); i++) {
-			final LocalMachine localMachine = machineList.get(i);
-			if(localMachine.isLocalhost()){
-				EventLoopGroup bossGroup = new NioEventLoopGroup();
-				EventLoopGroup workerGroup = new NioEventLoopGroup();
-				ServerBootstrap bootstrap = new ServerBootstrap();
-
-				try {
-					bootstrap.group(bossGroup,workerGroup)
-					.channel(NioServerSocketChannel.class)
-					.option(ChannelOption.SO_BACKLOG, 1024)
-					.childHandler(new ElectionServerChannelHandler()).bind(localMachine.getElectionServerPort()).sync();
-					System.out.println("数据通信服务开启成功，port="+localMachine.getElectionServerPort());
-				} catch (InterruptedException e) {
-					LOG.error("",e);
-					bootstrap = null;
-					workerGroup.shutdownGracefully();
-					bossGroup.shutdownGracefully();
-				}
+		
+		for (NodeConfig nodeConfig: ConfigInfo.getNodeConfigList()) {
+			EventLoopGroup bossGroup = new NioEventLoopGroup();
+			EventLoopGroup workerGroup = new NioEventLoopGroup();
+			ServerBootstrap bootstrap = new ServerBootstrap();
+			int port = nodeConfig.getElectionServerPort();
+			System.out.print("正在启动选举通信服务端口："+port);
+			try {
+				bootstrap.group(bossGroup,workerGroup)
+				.channel(NioServerSocketChannel.class)
+				.option(ChannelOption.SO_BACKLOG, 1024)
+				.childHandler(new ElectionServerChannelHandler(nodeConfig)).bind(nodeConfig.getElectionServerPort()).sync();
+				System.out.print("开启成功!");
+				
+				//
+				new Thread(new Runnable() {
+					
+					@Override
+					public void run() {
+						while(true) {
+							//监听集群中是否存在领导，如果不存在，则发起投票,如果存在，则改变该节点的角色id（默认启动时的角色id是候选人）
+							if(nodeConfig.getRole().get() != RoleType.LEADER) {
+								
+							}
+						}
+					}
+				}).start();
+			} catch (Exception e) {
+				System.out.print("开启失败!");
+				LOG.error("",e);
+				bootstrap = null;
+				workerGroup.shutdownGracefully();
+				bossGroup.shutdownGracefully();
 			}
+			System.out.println();
+			/*if(localMachine.isLocalhost()){
+				localMachine.startDataServer();
+				localMachine.startElectionServer();
+			}*/
 		}
 	}
 }
 class DataServerChannelHandler extends ChannelInitializer<SocketChannel>{
-	public DataServerChannelHandler(LocalMachine localMachine){
-		this.localMachine = localMachine;
+	private NodeConfig nodeConfig;
+	public DataServerChannelHandler(NodeConfig nodeConfig){
+		this.nodeConfig = nodeConfig;
 	}
-	private LocalMachine localMachine;
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
 		ch.config().setAllowHalfClosure(true);
@@ -100,20 +153,20 @@ class DataServerChannelHandler extends ChannelInitializer<SocketChannel>{
 		pipeline.addLast("decoder", new StringDecoder());
 		pipeline.addLast("encoder", new StringEncoder());
 		// 自己的逻辑Handler
-		pipeline.addLast("handler", new DataServerHandler(localMachine));
+		pipeline.addLast("handler", new DataServerHandler(nodeConfig));
 	}
-	public LocalMachine getLocalMachine() {
-		return localMachine;
+	public NodeConfig getNodeConfig() {
+		return nodeConfig;
 	}
-	public void setLocalMachine(LocalMachine localMachine) {
-		this.localMachine = localMachine;
+	public void setLocalMachine(NodeConfig nodeConfig) {
+		this.nodeConfig = nodeConfig;
 	}
 }
 class DataServerHandler extends SimpleChannelInboundHandler<String> {
-	public DataServerHandler(LocalMachine localMachine){
-		this.localMachine = localMachine;
+	private NodeConfig nodeConfig;
+	public DataServerHandler(NodeConfig nodeConfig){
+		this.nodeConfig = nodeConfig;
 	}
-	private LocalMachine localMachine;
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
 		System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
@@ -121,13 +174,13 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 		
 		switch (message.getReqCode()) {
 		case MsgType.GET_DATA:
-			byte[] value = localMachine.getData().get(message.getKey());
+			byte[] value = nodeConfig.getData().get(message.getKey());
 			message.setValue(value);
 			message.setRtnCode(MsgType.SUCCESS);
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");
 			break;
 		case MsgType.SET_DATA:
-			localMachine.getData().put(message.getKey(), message.getValue());
+			nodeConfig.getData().put(message.getKey(), message.getValue());
 			message.setRtnCode(MsgType.SUCCESS);
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");
 			break;
@@ -176,17 +229,28 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 		ctx.close();
 	}
 
-	public LocalMachine getLocalMachine() {
-		return localMachine;
+	public NodeConfig getNodeConfig() {
+		return nodeConfig;
 	}
 
-	public void setLocalMachine(LocalMachine localMachine) {
-		this.localMachine = localMachine;
+	public void setLocalMachine(NodeConfig nodeConfig) {
+		this.nodeConfig = nodeConfig;
 	}
 }
 
 class ElectionServerChannelHandler extends ChannelInitializer<SocketChannel>{
+	private NodeConfig nodeConfig;
+	public ElectionServerChannelHandler(NodeConfig nodeConfig){
+		this.nodeConfig = nodeConfig;
+	}
+	
+	public NodeConfig getNodeConfig() {
+		return nodeConfig;
+	}
 
+	public void setLocalMachine(NodeConfig nodeConfig) {
+		this.nodeConfig = nodeConfig;
+	}
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
 		ch.config().setAllowHalfClosure(true);
