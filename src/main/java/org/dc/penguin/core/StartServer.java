@@ -119,12 +119,15 @@ public class StartServer {
 								}else if(nodeInfo.getLeaderPingNum().get()>leaderPingNum){
 									leaderPingNum = nodeInfo.getLeaderPingNum().get();
 								}else {
+									System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
 									nodeInfo.getHaveVoteNum().set(1);
 									//nodeInfo.getHaveVoteNum().incrementAndGet();
 									while(true) {
-										leaderPingNum = nodeInfo.getLeaderPingNum().get();
+										int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
 										Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
-										if(nodeInfo.getLeaderPingNum().get()<=leaderPingNum) {
+										if(nodeInfo.getLeaderPingNum().get()<=leaderPingNum2) {
+											System.out.println(JSON.toJSONString(nodeInfo)+"发起vote");
+											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
 											NodeUtils.sendVote(nodeInfo);
 											Thread.sleep(3000);//3秒后获取投票结果
 											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2) {
@@ -133,9 +136,12 @@ public class StartServer {
 												nodeInfo.getVoteTotalNum().set(0);
 												break;
 											}
+										}else {
+											break;
 										}
 									}
 								}
+
 							} catch (Exception e) {
 								LOG.error("",e);
 							}
@@ -340,7 +346,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				/*NodeInfo node1 = JSON.parseObject(message.getValue(), NodeInfo.class);
 				for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
 					if(nodeInfo.getHost().equals(node1.getHost()) && nodeInfo.getElectionServerPort() == node1.getElectionServerPort()) {
-						nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum()+1);
+						nodeInfo.getLeaderPingNum().incrementAndGet();
 					}
 				}*/
 				nodeInfo.getLeaderPingNum().incrementAndGet();
