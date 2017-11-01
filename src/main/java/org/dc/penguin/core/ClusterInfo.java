@@ -2,8 +2,8 @@ package org.dc.penguin.core;
 
 import java.util.Vector;
 
-import org.dc.penguin.core.raft.NodeConfig;
+import org.dc.penguin.core.raft.NodeInfo;
 
 public class ClusterInfo {
-	public static  Vector<NodeConfig> clusterInfoList = new Vector<NodeConfig>();
+	public static  Vector<NodeInfo> clusterInfoList = new Vector<NodeInfo>();
 }

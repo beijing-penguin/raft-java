@@ -3,33 +3,19 @@ package org.dc.penguin.core.pojo;
 import com.alibaba.fastjson.JSON;
 
 public class Message {
-	private String reqId;
-	private int reqCode;
-	private int rtnCode;
-	
+	private int msgCode;
 	private String key;
 	private byte[] value;
 	
-	public int getReqCode() {
-		return reqCode;
+	
+	public int getMsgCode() {
+		return msgCode;
 	}
-	public void setReqCode(int reqCode) {
-		this.reqCode = reqCode;
-	}
-	public int getRtnCode() {
-		return rtnCode;
-	}
-	public void setRtnCode(int rtnCode) {
-		this.rtnCode = rtnCode;
+	public void setMsgCode(int msgCode) {
+		this.msgCode = msgCode;
 	}
 	public String toJSONString(){
 		return JSON.toJSONString(this)+"\n";
-	}
-	public String getReqId() {
-		return reqId;
-	}
-	public void setReqId(String reqId) {
-		this.reqId = reqId;
 	}
 	public String getKey() {
 		return key;

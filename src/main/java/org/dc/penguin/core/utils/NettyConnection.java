@@ -1,14 +1,14 @@
 package org.dc.penguin.core.utils;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.dc.penguin.core.ConfigInfo;
 import org.dc.penguin.core.pojo.Message;
+import org.dc.penguin.core.pojo.MsgType;
+import org.dc.penguin.core.raft.NodeInfo;
 
 import com.alibaba.fastjson.JSON;
 
@@ -30,17 +30,15 @@ import io.netty.handler.codec.string.StringEncoder;
 
 public class NettyConnection{
 	private static Log LOG = LogFactory.getLog(NettyConnection.class);
-	
-	private static Map<String, CountDownLatch> syncMap = new ConcurrentHashMap<String, CountDownLatch>();
+
+	//private static Map<String, CountDownLatch> syncMap = new ConcurrentHashMap<String, CountDownLatch>();
 	private long readTimeout = 3*1000;//默认3秒
 	private EventLoopGroup group = new NioEventLoopGroup(1);
 	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
-	private Message resultMessage;
 	private String host;
 	private int port;
-	private Channel channel;
-	private String reqId;
-	
+	private static Map<String,Channel> channeMap = new ConcurrentHashMap<String,Channel>();
+
 	public NettyConnection(String host,int port){
 		this.host = host;
 		this.port = port;
@@ -56,12 +54,45 @@ public class NettyConnection{
 				pipeline.addLast("framer", new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
 				pipeline.addLast("decoder", new StringDecoder());
 				pipeline.addLast("encoder", new StringEncoder());
-				// 客户端的逻辑
 				pipeline.addLast("handler", new SimpleChannelInboundHandler<String>() {
 					@Override
 					protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-						resultMessage = JSON.parseObject(msg, Message.class);
-						syncMap.get(reqId).countDown();
+						try {
+							Message resultMessage = JSON.parseObject(msg, Message.class);
+							switch (resultMessage.getMsgCode()) {
+							case MsgType.LEADER_PING:
+								/*NodeInfo node = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
+								for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+									if(nodeInfo.getHost().equals(node.getHost()) && nodeInfo.getElectionServerPort() == node.getElectionServerPort()) {
+										nodeInfo.getVoteTotalNum().incrementAndGet();
+									}
+								}*/
+								//NodeUtils.leaderNodeInfo = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
+								/*NodeInfo node1 = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
+								for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+									if(nodeInfo.getHost().equals(node1.getHost()) && nodeInfo.getElectionServerPort() == node1.getElectionServerPort()) {
+										nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum()+1);
+									}
+								}*/
+								break;
+							case MsgType.VOTE:
+								NodeInfo node = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
+								for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+									if(nodeInfo.getHost().equals(node.getHost()) && nodeInfo.getElectionServerPort() == node.getElectionServerPort()) {
+										nodeInfo.getVoteTotalNum().incrementAndGet();
+									}
+								}
+								/*if(resultMessage.getMsgCode()==MsgType.SUCCESS) {
+									NodeUtils.voteNum.incrementAndGet();
+								}*/
+								break;
+							default:
+								break;
+							}
+						}catch (Exception e) {
+							ctx.close();
+							LOG.error("",e);
+						}
 					}
 
 					@Override
@@ -87,46 +118,32 @@ public class NettyConnection{
 	}
 
 	private Channel getChannel() throws Exception{
-		if(channel==null){
+		String key = host+port;
+		Channel channel =null;
+		if(channeMap.containsKey(host+port)) {
+			channel = channeMap.get(key);
+		}
+		if(channel==null || !channel.isOpen() || !channel.isActive()) {
 			channel = boot.connect(host, port).sync().channel();
-		}else if(!channel.isOpen() || !channel.isActive()){
-			channel.close().sync();
-			channel = null;
-			channel = boot.connect(host, port).sync().channel();
+			channeMap.put(key, channel);
 		}
 		return channel;
 	}
-	public Message sendMessage(Message msg) throws Exception{
-		reqId = UUID.randomUUID().toString();
-		syncMap.put(reqId, new CountDownLatch(1));
-		resultMessage = null;
-		try{
-			Channel channel = getChannel();
-			channel.writeAndFlush(msg.toJSONString());
-			syncMap.get(reqId).await(readTimeout, TimeUnit.MILLISECONDS);
-		}catch (Exception e) {
-			throw e;
-		}finally{
-			syncMap.remove(reqId);
-		}
-		return resultMessage;
+	public void sendMessage(Message msg) throws Exception{
+		Channel channel = getChannel();
+		channel.writeAndFlush(msg.toJSONString());
 	}
-	public void close() {
+	public void close() throws Exception {
+		String key = host+port;
+		Channel channel = channeMap.get(key);
 		if(channel!=null){
-			try {
-				channel.close().sync();
-			} catch (Exception e) {
-				LOG.info("",e);
-			}
+			channel.close().sync();
+			channel=null;
 		}
 		boot = null;
-		try {
-			group.shutdownGracefully().sync();
-		} catch (InterruptedException e) {
-			LOG.info("",e);
-		}
+		group.shutdownGracefully().sync();
 	}
-	
+
 	public String getHost() {
 		return host;
 	}

@@ -1,7 +1,5 @@
 package org.dc.penguin.core.raft;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,15 +29,24 @@ import io.netty.handler.timeout.IdleStateHandler;
  * 本机器配置信息
  * @author DC
  */
-public class NodeConfig {
-	private static Log LOG = LogFactory.getLog(NodeConfig.class);
-	private Map<String,byte[]> data = new ConcurrentHashMap<String,byte[]>();
+public class NodeInfo {
+	private static Log LOG = LogFactory.getLog(NodeInfo.class);
 	private String host;
 	private int dataServerPort;
 	private int electionServerPort;
-	private AtomicInteger haveVoteNum;//已获得的票数
+	private AtomicInteger haveVoteNum = new AtomicInteger(1);//
 	private boolean isLocalhost;
-	private AtomicInteger role = new AtomicInteger(RoleType.CONDIDATE);//当前身份
+	private int role = RoleType.FOLLOWER;//当前身份
+	private AtomicInteger leaderPingNum = new AtomicInteger(0);;
+	private AtomicInteger voteTotalNum = new AtomicInteger(0);
+	
+	
+	public AtomicInteger getVoteTotalNum() {
+		return voteTotalNum;
+	}
+	public void setVoteTotalNum(AtomicInteger voteTotalNum) {
+		this.voteTotalNum = voteTotalNum;
+	}
 	/**
 	 * 想所有人发起投票
 	 * @throws Exception
@@ -202,13 +209,6 @@ public class NodeConfig {
 		this.isLocalhost = isLocalhost;
 	}
 
-	public Map<String, byte[]> getData() {
-		return data;
-	}
-
-	public void setData(Map<String, byte[]> data) {
-		this.data = data;
-	}
 	public AtomicInteger getHaveVoteNum() {
 		return haveVoteNum;
 	}
@@ -221,18 +221,25 @@ public class NodeConfig {
 	public void setElectionServerPort(int electionServerPort) {
 		this.electionServerPort = electionServerPort;
 	}
-	public AtomicInteger getRole() {
+	public int getRole() {
 		return role;
 	}
-	public void setRole(AtomicInteger role) {
+	public void setRole(int role) {
 		this.role = role;
 	}
+	public AtomicInteger getLeaderPingNum() {
+		return leaderPingNum;
+	}
+	public void setLeaderPingNum(AtomicInteger leaderPingNum) {
+		this.leaderPingNum = leaderPingNum;
+	}
+	
 }
 
 
 class ElectionServerChannelHandler extends ChannelInitializer<SocketChannel>{
-	NodeConfig nodeConfig;
-	public ElectionServerChannelHandler(NodeConfig nodeConfig) {
+	NodeInfo nodeConfig;
+	public ElectionServerChannelHandler(NodeInfo nodeConfig) {
 		this.nodeConfig = nodeConfig;
 	}
 
