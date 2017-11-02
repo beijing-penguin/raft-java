@@ -120,13 +120,15 @@ public class StartServer {
 									leaderPingNum = nodeInfo.getLeaderPingNum().get();
 								}else {
 									System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
-									nodeInfo.getHaveVoteNum().set(1);
+									nodeInfo.getHaveVoteNum().set(1);//当前节点的如果没有leaderPing，则让该节点具备投票权。
 									//nodeInfo.getHaveVoteNum().incrementAndGet();
 									while(true) {
 										int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
 										Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
 										if(nodeInfo.getLeaderPingNum().get()<=leaderPingNum2) {
 											System.out.println(JSON.toJSONString(nodeInfo)+"发起vote");
+											nodeInfo.getVoteTotalNum().incrementAndGet();
+											nodeInfo.getHaveVoteNum().incrementAndGet();
 											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
 											NodeUtils.sendVote(nodeInfo);
 											Thread.sleep(3000);//3秒后获取投票结果
