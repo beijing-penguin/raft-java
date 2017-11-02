@@ -132,10 +132,10 @@ public class StartServer {
 											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
 											NodeUtils.sendVote(nodeInfo);
 											Thread.sleep(3000);//3秒后获取投票结果
-											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2) {
-												NodeUtils.sendLeaderPing(nodeInfo);
+											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 && nodeInfo.getLeaderPingNum().get()<=leaderPingNum2) {
 												nodeInfo.setRole(RoleType.LEADER);
 												nodeInfo.getVoteTotalNum().set(0);
+												NodeUtils.sendLeaderPing(nodeInfo);
 												break;
 											}
 										}else {
