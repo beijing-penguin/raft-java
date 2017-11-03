@@ -119,28 +119,32 @@ public class StartServer {
 								}else if(nodeInfo.getLeaderPingNum().get()>leaderPingNum){
 									leaderPingNum = nodeInfo.getLeaderPingNum().get();
 								}else {
-									System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
-									nodeInfo.getHaveVoteNum().set(1);//当前节点的如果没有leaderPing，则让该节点具备投票权。
-									//nodeInfo.getHaveVoteNum().incrementAndGet();
 									while(true) {
+										System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
+										nodeInfo.getHaveVoteNum().set(1);//当前节点的如果没有leaderPing，则让该节点具备投票权。
+										
 										int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
-										Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
-										if(nodeInfo.getLeaderPingNum().get()<=leaderPingNum2) {
-											System.out.println(JSON.toJSONString(nodeInfo)+"发起vote");
-											nodeInfo.getVoteTotalNum().incrementAndGet();
-											nodeInfo.getHaveVoteNum().incrementAndGet();
-											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
-											NodeUtils.sendVote(nodeInfo);
-											Thread.sleep(3000);//3秒后获取投票结果
-											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 && nodeInfo.getLeaderPingNum().get()<=leaderPingNum2) {
-												nodeInfo.setRole(RoleType.LEADER);
-												nodeInfo.getVoteTotalNum().set(0);
-												NodeUtils.sendLeaderPing(nodeInfo);
-												break;
-											}
-										}else {
+										System.out.println(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
+										//优先投自己
+										nodeInfo.getVoteTotalNum().incrementAndGet();
+										nodeInfo.getHaveVoteNum().incrementAndGet();
+										//...//
+										//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
+										NodeUtils.sendVote(nodeInfo);
+										Thread.sleep(3000);//3秒后获取投票结果
+										if(nodeInfo.getLeaderPingNum().get()>leaderPingNum2) {//已经存在leader
+											nodeInfo.getVoteTotalNum().set(0);
 											break;
 										}
+										if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
+											nodeInfo.setRole(RoleType.LEADER);
+											NodeUtils.sendLeaderPing(nodeInfo);
+											nodeInfo.getVoteTotalNum().set(0);
+											break;
+										}
+										System.out.println("选举失败...");
+										nodeInfo.getVoteTotalNum().set(0);
+										Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
 									}
 								}
 
