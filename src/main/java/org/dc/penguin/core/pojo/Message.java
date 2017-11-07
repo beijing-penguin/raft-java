@@ -6,8 +6,15 @@ public class Message {
 	private int msgCode;
 	private String key;
 	private byte[] value;
+	private String leaderKey;
 	
 	
+	public String getLeaderKey() {
+		return leaderKey;
+	}
+	public void setLeaderKey(String leaderKey) {
+		this.leaderKey = leaderKey;
+	}
 	public int getMsgCode() {
 		return msgCode;
 	}

@@ -44,11 +44,20 @@ public class NodeUtils {
 	public static void sendVote(NodeInfo mynodeInfo) {
 		try {
 			for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
-				NettyConnection conn = new NettyConnection(nodeInfo.getHost(),nodeInfo.getElectionServerPort());
-				Message msg = new Message();
-				msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
-				msg.setMsgCode(MsgType.VOTE);
-				conn.sendMessage(msg);
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							NettyConnection conn = new NettyConnection(nodeInfo.getHost(),nodeInfo.getElectionServerPort());
+							Message msg = new Message();
+							msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
+							msg.setMsgCode(MsgType.VOTE);
+							conn.sendMessage(msg);
+						} catch (Exception e) {
+							LOG.error("",e);
+						}
+					}
+				}).start();
 			}
 		} catch (Exception e) {
 			LOG.error("",e);
@@ -57,11 +66,20 @@ public class NodeUtils {
 	public static void sendLeaderPing(NodeInfo mynodeInfo) {
 		try {
 			for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
-				NettyConnection conn = new NettyConnection(nodeInfo.getHost(),nodeInfo.getElectionServerPort());
-				Message msg = new Message();
-				msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
-				msg.setMsgCode(MsgType.LEADER_PING);
-				conn.sendMessage(msg);
+				new Thread(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							NettyConnection conn = new NettyConnection(nodeInfo.getHost(),nodeInfo.getElectionServerPort());
+							Message msg = new Message();
+							msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
+							msg.setMsgCode(MsgType.LEADER_PING);
+							conn.sendMessage(msg);
+						} catch (Exception e) {
+							LOG.error("",e);
+						}
+					}
+				}).start();
 			}
 		} catch (Exception e) {
 			LOG.error("",e);

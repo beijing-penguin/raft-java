@@ -72,131 +72,121 @@ public class StartServer {
 			}
 		}*/
 		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
-			EventLoopGroup bossGroup = new NioEventLoopGroup();
-			EventLoopGroup workerGroup = new NioEventLoopGroup();
-			ServerBootstrap bootstrap = new ServerBootstrap();
-			int port = nodeInfo.getDataServerPort();
-			System.out.print("正在启动数据通信服务端口："+port);
-			try {
-				bootstrap.group(bossGroup,workerGroup)
-				.channel(NioServerSocketChannel.class)
-				.option(ChannelOption.SO_BACKLOG, 1024)
-				.childHandler(new DataServerChannelHandler(nodeInfo)).bind(nodeInfo.getDataServerPort()).sync();
-				System.out.print("开启成功!");
-			} catch (Exception e) {
-				System.out.print("开启失败!");
-				LOG.error("",e);
-				bootstrap = null;
-				workerGroup.shutdownGracefully();
-				bossGroup.shutdownGracefully();
+			if(nodeInfo.isLocalhost()) {
+				EventLoopGroup bossGroup = new NioEventLoopGroup();
+				EventLoopGroup workerGroup = new NioEventLoopGroup();
+				ServerBootstrap bootstrap = new ServerBootstrap();
+				int port = nodeInfo.getDataServerPort();
+				System.out.print("正在启动数据通信服务端口："+port);
+				try {
+					bootstrap.group(bossGroup,workerGroup)
+					.channel(NioServerSocketChannel.class)
+					.option(ChannelOption.SO_BACKLOG, 1024)
+					.childHandler(new DataServerChannelHandler(nodeInfo)).bind(nodeInfo.getDataServerPort()).sync();
+					System.out.print("开启成功!");
+				} catch (Exception e) {
+					System.out.print("开启失败!");
+					LOG.error("",e);
+					bootstrap = null;
+					workerGroup.shutdownGracefully();
+					bossGroup.shutdownGracefully();
+				}
+				System.out.println();
 			}
-			System.out.println();
 		}
 
 		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
-			EventLoopGroup bossGroup = new NioEventLoopGroup();
-			EventLoopGroup workerGroup = new NioEventLoopGroup();
-			ServerBootstrap bootstrap = new ServerBootstrap();
-			int port = nodeInfo.getElectionServerPort();
-			System.out.print("正在启动选举通信服务端口："+port);
-			try {
-				bootstrap.group(bossGroup,workerGroup)
-				.channel(NioServerSocketChannel.class)
-				.option(ChannelOption.SO_BACKLOG, 1024)
-				.childHandler(new ElectionServerChannelHandler(nodeInfo)).bind(nodeInfo.getElectionServerPort()).sync();
-				System.out.print("开启成功!");
+			if(nodeInfo.isLocalhost()) {
 
-				//何时发起选举定时器
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						int leaderPingNum = 0;
-						while(true) {
-							try {
-								Thread.sleep(5000);//选举超时5秒
-								if(nodeInfo.getRole()==RoleType.LEADER) {
-									continue;
-								}else if(nodeInfo.getLeaderPingNum().get()>leaderPingNum){
-									leaderPingNum = nodeInfo.getLeaderPingNum().get();
-								}else {
-									while(true) {
-										System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
-										nodeInfo.getHaveVoteNum().set(1);//当前节点的如果没有leaderPing，则让该节点具备投票权。
-										
-										int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
-										System.out.println(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
-										//优先投自己
-										nodeInfo.getVoteTotalNum().incrementAndGet();
-										nodeInfo.getHaveVoteNum().incrementAndGet();
-										//...//
-										//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
-										NodeUtils.sendVote(nodeInfo);
-										Thread.sleep(3000);//3秒后获取投票结果
-										if(nodeInfo.getLeaderPingNum().get()>leaderPingNum2) {//已经存在leader
+
+				EventLoopGroup bossGroup = new NioEventLoopGroup();
+				EventLoopGroup workerGroup = new NioEventLoopGroup();
+				ServerBootstrap bootstrap = new ServerBootstrap();
+				int port = nodeInfo.getElectionServerPort();
+				System.out.print("正在启动选举通信服务端口："+port);
+				try {
+					bootstrap.group(bossGroup,workerGroup)
+					.channel(NioServerSocketChannel.class)
+					.option(ChannelOption.SO_BACKLOG, 1024)
+					.childHandler(new ElectionServerChannelHandler(nodeInfo)).bind(nodeInfo.getElectionServerPort()).sync();
+					System.out.print("开启成功!");
+
+					//何时发起选举定时器
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							int leaderPingNum = 0;
+							while(true) {
+								try {
+									Thread.sleep(5000);//选举超时5秒
+									if(nodeInfo.getRole()==RoleType.LEADER) {
+										continue;
+									}else if(nodeInfo.getLeaderPingNum().get()>leaderPingNum){
+										leaderPingNum = nodeInfo.getLeaderPingNum().get();
+									}else {
+										while(true) {
+											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
+											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
+
+											int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
+											LOG.info(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
+											//优先投自己一票
+											nodeInfo.getVoteTotalNum().incrementAndGet();
+											nodeInfo.getHaveVoteNum().incrementAndGet();
+											//...//
+											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
+											NodeUtils.sendVote(nodeInfo);
+											Thread.sleep(3000);//3秒后获取投票结果
+											LOG.info(nodeInfo.getHost()+"投票结果voteTotalNum="+nodeInfo.getVoteTotalNum());
+											if(nodeInfo.getLeaderPingNum().get()>leaderPingNum2) {//已经存在leader
+												nodeInfo.getVoteTotalNum().set(0);
+												break;
+											}
+											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
+												nodeInfo.setRole(RoleType.LEADER);
+												NodeUtils.sendLeaderPing(nodeInfo);
+												nodeInfo.getVoteTotalNum().set(0);
+												break;
+											}
+											LOG.info("选举失败...");
+											nodeInfo.getHaveVoteNum().set(1);
 											nodeInfo.getVoteTotalNum().set(0);
-											break;
+											Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
 										}
-										if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
-											nodeInfo.setRole(RoleType.LEADER);
-											NodeUtils.sendLeaderPing(nodeInfo);
-											nodeInfo.getVoteTotalNum().set(0);
-											break;
-										}
-										System.out.println("选举失败...");
-										nodeInfo.getVoteTotalNum().set(0);
-										Thread.sleep(new Random().nextInt(10)*1000);//随机沉睡数秒后发起选举请求
 									}
-								}
 
-							} catch (Exception e) {
-								LOG.error("",e);
+								} catch (Exception e) {
+									LOG.error("",e);
+								}
 							}
 						}
-					}
-				}).start();
+					}).start();
 
-				//票数分析定时器
-				/*new Thread(new Runnable() {
-					@Override
-					public void run() {
-						while(true) {
-							try {
-								Thread.sleep(2000);
-								if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2) {
-									nodeInfo.setRole(RoleType.LEADER);
-									nodeInfo.getVoteTotalNum().set(0);
+					//领导ping定时器
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							while(true) {
+								try {
+									Thread.sleep(2000);
+									if(nodeInfo.getRole()==RoleType.LEADER) {
+										NodeUtils.sendLeaderPing(nodeInfo);
+									}
+								} catch (Exception e) {
+									LOG.error("",e);
 								}
-							} catch (Exception e) {
-								LOG.error("",e);
 							}
 						}
-					}
-				}).start();*/
-
-				//领导ping定时器
-				new Thread(new Runnable() {
-					@Override
-					public void run() {
-						while(true) {
-							try {
-								Thread.sleep(2000);
-								if(nodeInfo.getRole()==RoleType.LEADER) {
-									NodeUtils.sendLeaderPing(nodeInfo);
-								}
-							} catch (Exception e) {
-								LOG.error("",e);
-							}
-						}
-					}
-				}).start();
-			} catch (Exception e) {
-				System.out.print("开启失败!");
-				LOG.error("",e);
-				bootstrap = null;
-				workerGroup.shutdownGracefully();
-				bossGroup.shutdownGracefully();
+					}).start();
+				} catch (Exception e) {
+					System.out.print("开启失败!");
+					LOG.error("",e);
+					bootstrap = null;
+					workerGroup.shutdownGracefully();
+					bossGroup.shutdownGracefully();
+				}
+				System.out.println();
 			}
-			System.out.println();
 		}
 	}
 }
@@ -347,11 +337,16 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				}
 				break;
 			case MsgType.LEADER_PING:
-				//nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum()+1);
-				//ctx.channel().writeAndFlush(message.toJSONString());
-				/*NodeInfo node1 = JSON.parseObject(message.getValue(), NodeInfo.class);
-				for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
-					if(nodeInfo.getHost().equals(node1.getHost()) && nodeInfo.getElectionServerPort() == node1.getElectionServerPort()) {
+				/*if(nodeInfo.getRole()==RoleType.LEADER) {
+					if(Integer.parseInt(message.getLeaderKey().split(":")[3])>nodeInfo.getDataIndex().get()) {
+						nodeInfo.setRole(RoleType.FOLLOWER);
+					}else {//响应降级信息
+
+					}
+				}else {
+					if(!message.getLeaderKey().equals(nodeInfo.getLeaderKey())) {
+						nodeInfo.getLeaderPingNum().incrementAndGet();
+					}else {
 						nodeInfo.getLeaderPingNum().incrementAndGet();
 					}
 				}*/

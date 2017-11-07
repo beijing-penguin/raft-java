@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 import org.apache.commons.logging.Log;
@@ -57,4 +58,8 @@ public class SystemUtils {
 		}
 		return null;
 	}*/
+	public static void main(String[] args) throws Exception {
+		System.out.println(new Random().nextInt(10)*1000);
+		System.out.println(SystemUtils.getAllLocalHostIP());
+	}
 }
