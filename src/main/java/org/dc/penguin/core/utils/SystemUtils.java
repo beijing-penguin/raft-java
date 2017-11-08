@@ -7,13 +7,7 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.ConfigInfo;
-import org.dc.penguin.core.raft.NettyRaftServer;
-
 public class SystemUtils {
-	private static Log LOG = LogFactory.getLog(NettyRaftServer.class);
 	/** 
 	 * 获取本机所有IP 
 	 * @throws Exception 

@@ -33,8 +33,8 @@ public class NettyConnection{
 
 	//private static Map<String, CountDownLatch> syncMap = new ConcurrentHashMap<String, CountDownLatch>();
 	private long readTimeout = 3*1000;//默认3秒
-	private EventLoopGroup group = new NioEventLoopGroup(1);
-	private Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
+	private static EventLoopGroup group = new NioEventLoopGroup(50);
+	private static Bootstrap boot = new Bootstrap().group(group).channel(NioSocketChannel.class).option(ChannelOption.TCP_NODELAY, true);
 	private String host;
 	private int port;
 	private static Map<String,Channel> channeMap = new ConcurrentHashMap<String,Channel>();
@@ -42,9 +42,9 @@ public class NettyConnection{
 	public NettyConnection(String host,int port){
 		this.host = host;
 		this.port = port;
-		initBoot();
+		//initBoot();
 	}
-	public void initBoot(){
+	static {
 		boot.handler(new ChannelInitializer<SocketChannel>() {
 			@Override
 			protected void initChannel(SocketChannel ch) throws Exception {
@@ -82,9 +82,6 @@ public class NettyConnection{
 										nodeInfo.getVoteTotalNum().incrementAndGet();
 									}
 								}
-								/*if(resultMessage.getMsgCode()==MsgType.SUCCESS) {
-									NodeUtils.voteNum.incrementAndGet();
-								}*/
 								break;
 							default:
 								break;
@@ -120,7 +117,7 @@ public class NettyConnection{
 	private Channel getChannel() throws Exception{
 		String key = host+port;
 		Channel channel =null;
-		if(channeMap.containsKey(host+port)) {
+		if(channeMap.containsKey(key)) {
 			channel = channeMap.get(key);
 		}
 		if(channel==null || !channel.isOpen() || !channel.isActive()) {

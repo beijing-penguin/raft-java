@@ -34,43 +34,6 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	private static Log LOG = LogFactory.getLog(StartServer.class);
 	public static void main(String[] args) throws Exception {
-		/*//1.启动定时器
-		Scanner sc = new Scanner(System.in);
-		while(true) {
-			String sys_inp = sc.nextLine();
-			if("close".equals(sys_inp) || "end".equals(sys_inp) || "quit".equals(sys_inp)) {
-				break;
-			}
-			if(sys_inp.startsWith("start")) {
-				String[] str_arr = sys_inp.split(" ");
-				if(str_arr.length==1) {
-					System.out.println("请输入端口号，如start 8880 7770");
-				}
-				for (int i = 1; i < str_arr.length; i++) {
-					//启动数据端口
-					EventLoopGroup bossGroup = new NioEventLoopGroup();
-					EventLoopGroup workerGroup = new NioEventLoopGroup();
-					ServerBootstrap bootstrap = new ServerBootstrap();
-
-					try {
-						DataServerChannelHandler channelHandler = new DataServerChannelHandler(localMachine);
-						channelHandler.setLocalMachine(localMachine);
-						bootstrap.group(bossGroup,workerGroup)
-						.channel(NioServerSocketChannel.class)
-						.option(ChannelOption.SO_BACKLOG, 1024)
-						.childHandler(channelHandler).bind(localMachine.getDataServerPort()).sync();
-						System.out.println("数据通信服务开启成功，port="+localMachine.getDataServerPort());
-					} catch (InterruptedException e) {
-						LOG.error("",e);
-						bootstrap = null;
-						workerGroup.shutdownGracefully();
-						bossGroup.shutdownGracefully();
-					}
-					//启动选举端口
-
-				}
-			}
-		}*/
 		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
