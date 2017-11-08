@@ -208,25 +208,6 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 		default:
 			break;
 		}
-		//if(message.getMsgType())
-		/*switch (message.getReqType()) {
-		case MsgType.GET_LEADER:
-			ConfigInfo initConfig = ConfigInfo.getInstance();
-			for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-				if(initConfig.getConnVector().get(i).getRole() == Role.LEADER){
-
-				}
-			}
-			break;
-		default:
-			break;
-		}
-		Message ms = new Message();
-		ms.setReqType(MsgType.YES_LEADER);
-		ctx.channel().writeAndFlush(JSON.toJSONString(ms)+"\n");
-		if (!"OK".equals(msg)) {
-			//业务逻辑
-		}*/
 	}
 
 	@Override
@@ -300,19 +281,6 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				}
 				break;
 			case MsgType.LEADER_PING:
-				/*if(nodeInfo.getRole()==RoleType.LEADER) {
-					if(Integer.parseInt(message.getLeaderKey().split(":")[3])>nodeInfo.getDataIndex().get()) {
-						nodeInfo.setRole(RoleType.FOLLOWER);
-					}else {//响应降级信息
-
-					}
-				}else {
-					if(!message.getLeaderKey().equals(nodeInfo.getLeaderKey())) {
-						nodeInfo.getLeaderPingNum().incrementAndGet();
-					}else {
-						nodeInfo.getLeaderPingNum().incrementAndGet();
-					}
-				}*/
 				nodeInfo.getLeaderPingNum().incrementAndGet();
 				break;
 			default:
@@ -322,26 +290,6 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 			ctx.close();
 			LOG.error("",e);
 		}
-		/*	System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
-		Message message = JSON.parseObject(msg,Message.class);
-		switch (message.getReqType()) {
-		case MsgType.GET_LEADER:
-			ConfigInfo initConfig = ConfigInfo.getInstance();
-			for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-				if(initConfig.getConnVector().get(i).getRole() == Role.LEADER){
-
-				}
-			}
-			break;
-		default:
-			break;
-		}*/
-		/*Message ms = new Message();
-		ms.setReqType(MsgType.YES_LEADER);
-		ctx.channel().writeAndFlush(JSON.toJSONString(ms)+"\n");
-		if (!"OK".equals(msg)) {
-			//业务逻辑
-		}*/
 	}
 
 	@Override
