@@ -2,3 +2,5 @@
 ## ①如果出现leader节点由于网络问题，出现被孤立的情况，则该leader节点被client访问时，基于日志不能复制到其他超过半数的节点，自动降级为follower该被孤立的leader如果接受到来自其他leaderNode的ping，则根据数据索引大于该leaderIndex也自动降级为follower。。如果在网络波动期间该被孤立的leader马上又恢复正常，则在它发送leaderPing时，其他follower会感应到有两个leader同时给自己发送了leaderPing，则根据数据索引，判定index越大（这里的index就相当于raft论文中term领导任期值），则被认可为了真正的leader，另外一个leader便自动降级为follower。
 ## ②当raft集群leader由于内部网络波动问题，连不上follower期间，follower自动检测并发起选举，主动发起选举的节点不接受来自client或者leader任何数据请求，即不保存任何数据，也不会做出任何相应，直到选举结束，或者收到来自其他leader的leaderPing
 ## ③本raft-java项目相对于raft论文，代码实现时略有改动，暂时没用到候选人角色，转而采用其他可理解的变量作为集群选举协议等相关操作的控制，并暂无bug和漏洞。依然满足最终严格的数据一致性的要求。
+##
+## ④程序使用说明，配置好config.properties，启动StartServer.java即可。
