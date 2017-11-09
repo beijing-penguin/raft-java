@@ -290,7 +290,8 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				}else {
 					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
 						if(nodeInfo.getHost().equals(leaderNode.getHost()) && nodeInfo.getElectionServerPort() == leaderNode.getElectionServerPort()) {
-							nodeInfo = leaderNode;
+							nodeInfo.setRole(RoleType.LEADER);
+							nodeInfo.setTerm(leaderNode.getTerm());
 						}
 					}
 					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
