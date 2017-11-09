@@ -18,10 +18,16 @@ public class NodeInfo {
 	private AtomicInteger leaderPingNum = new AtomicInteger(0);
 	private AtomicInteger voteTotalNum = new AtomicInteger(0);
 	private String leaderKey;//当前leaderKey=ip+dataServerPort+electionServerPort
-	private AtomicInteger dataIndex = new AtomicInteger(0);;//数据索引
+	private AtomicInteger dataIndex = new AtomicInteger(0);//数据索引
+	private AtomicInteger term = new AtomicInteger(0);//任期
 	
 	
-	
+	public AtomicInteger getTerm() {
+		return term;
+	}
+	public void setTerm(AtomicInteger term) {
+		this.term = term;
+	}
 	public AtomicInteger getDataIndex() {
 		return dataIndex;
 	}

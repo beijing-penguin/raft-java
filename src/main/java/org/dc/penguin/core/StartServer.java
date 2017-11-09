@@ -281,6 +281,20 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				}
 				break;
 			case MsgType.LEADER_PING:
+				NodeInfo leaderNode = JSON.parseObject(message.getValue(), NodeInfo.class);
+				if(nodeInfo.getRole()==RoleType.LEADER) {
+					if(!leaderNode.getHost().equals(nodeInfo.getHost()) && nodeInfo.getTerm().get()<=leaderNode.getTerm().get() ) {
+						nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
+						nodeInfo.setRole(RoleType.FOLLOWER);
+					}
+				}else {
+					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+						if(nodeInfo.getHost().equals(leaderNode.getHost()) && nodeInfo.getElectionServerPort() == leaderNode.getElectionServerPort()) {
+							nodeInfo = leaderNode;
+						}
+					}
+					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
+				}
 				nodeInfo.getLeaderPingNum().incrementAndGet();
 				break;
 			default:

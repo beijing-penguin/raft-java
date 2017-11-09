@@ -137,8 +137,6 @@ public class NettyConnection{
 			channel.close().sync();
 			channel=null;
 		}
-		boot = null;
-		group.shutdownGracefully().sync();
 	}
 
 	public String getHost() {

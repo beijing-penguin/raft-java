@@ -85,4 +85,7 @@ public class NodeUtils {
 			LOG.error("",e);
 		}
 	}
+	public static String createLeaderKey(NodeInfo nodeInfo) {
+		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get();
+	}
 }
