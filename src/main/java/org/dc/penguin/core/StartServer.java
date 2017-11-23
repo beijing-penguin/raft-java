@@ -90,7 +90,8 @@ public class StartServer {
 										while(true) {
 											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
-
+											nodeInfo.setLeaderKey(null);//被设置该节点无leaderKey
+											
 											int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
 											LOG.info(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
 											//优先投自己一票
@@ -288,13 +289,21 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 						nodeInfo.setRole(RoleType.FOLLOWER);
 					}
 				}else {
-					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {//设置本节点内存中leaderNode的信息。
 						if(nodeInfo.getHost().equals(leaderNode.getHost()) && nodeInfo.getElectionServerPort() == leaderNode.getElectionServerPort()) {
 							nodeInfo.setRole(RoleType.LEADER);
+							nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
 							nodeInfo.setTerm(leaderNode.getTerm());
 						}
 					}
 					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
+				}
+				if(nodeInfo.getLeaderKey()==null) {
+					nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
+				}else {
+					if(leaderNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3])) {
+						nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
+					}
 				}
 				nodeInfo.getLeaderPingNum().incrementAndGet();
 				break;
