@@ -60,8 +60,6 @@ public class StartServer {
 
 		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
-
-
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
 				ServerBootstrap bootstrap = new ServerBootstrap();
