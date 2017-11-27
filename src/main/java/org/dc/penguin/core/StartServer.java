@@ -88,16 +88,16 @@ public class StartServer {
 										while(true) {
 											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
-											nodeInfo.setLeaderKey(null);//被设置该节点无leaderKey
+											nodeInfo.setLeaderKey(null);//设置该节点无leaderKey
 											
 											int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
 											LOG.info(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
 											//优先投自己一票
 											nodeInfo.getVoteTotalNum().incrementAndGet();
 											nodeInfo.getHaveVoteNum().incrementAndGet();
-											//...//
-											//System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum()+"-"+leaderPingNum);
-											NodeUtils.sendVote(nodeInfo);
+											nodeInfo.getTerm().incrementAndGet();//任期号加1，
+											
+											NodeUtils.sendVote(nodeInfo);//向所有其他服务器发起投票申请，其他服务器接受到邀请后，是否同意的条件是任期号大于该node，和数据索引大于等于该node
 											Thread.sleep(3000);//3秒后获取投票结果
 											LOG.info(nodeInfo.getHost()+"投票结果voteTotalNum="+nodeInfo.getVoteTotalNum());
 											if(nodeInfo.getLeaderPingNum().get()>leaderPingNum2) {//已经存在leader
@@ -153,9 +153,9 @@ public class StartServer {
 	}
 }
 class DataServerChannelHandler extends ChannelInitializer<SocketChannel>{
-	private NodeInfo nodeConfig;
-	public DataServerChannelHandler(NodeInfo nodeConfig){
-		this.nodeConfig = nodeConfig;
+	private NodeInfo nodeInfo;
+	public DataServerChannelHandler(NodeInfo nodeInfo){
+		this.nodeInfo = nodeInfo;
 	}
 	@Override
 	protected void initChannel(SocketChannel ch) throws Exception {
@@ -173,13 +173,7 @@ class DataServerChannelHandler extends ChannelInitializer<SocketChannel>{
 		pipeline.addLast("decoder", new StringDecoder());
 		pipeline.addLast("encoder", new StringEncoder());
 		// 自己的逻辑Handler
-		pipeline.addLast("handler", new DataServerHandler(nodeConfig));
-	}
-	public NodeInfo getNodeConfig() {
-		return nodeConfig;
-	}
-	public void setLocalMachine(NodeInfo nodeConfig) {
-		this.nodeConfig = nodeConfig;
+		pipeline.addLast("handler", new DataServerHandler(nodeInfo));
 	}
 }
 class DataServerHandler extends SimpleChannelInboundHandler<String> {
@@ -273,34 +267,34 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) {
 		try {
 			Message message = JSON.parseObject(msg,Message.class);
+			NodeInfo reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
-				if(nodeInfo.getRole()!=RoleType.LEADER && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
+				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
 				}
 				break;
 			case MsgType.LEADER_PING:
-				NodeInfo leaderNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 				if(nodeInfo.getRole()==RoleType.LEADER) {
-					if(!leaderNode.getHost().equals(nodeInfo.getHost()) && nodeInfo.getTerm().get()<=leaderNode.getTerm().get() ) {
-						nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
+					if(!reqNode.getHost().equals(nodeInfo.getHost()) && nodeInfo.getTerm().get()<=reqNode.getTerm().get() ) {
+						nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(reqNode));
 						nodeInfo.setRole(RoleType.FOLLOWER);
 					}
 				}else {
 					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {//设置本节点内存中leaderNode的信息。
-						if(nodeInfo.getHost().equals(leaderNode.getHost()) && nodeInfo.getElectionServerPort() == leaderNode.getElectionServerPort()) {
+						if(nodeInfo.getHost().equals(reqNode.getHost()) && nodeInfo.getElectionServerPort() == reqNode.getElectionServerPort()) {
 							nodeInfo.setRole(RoleType.LEADER);
-							nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
-							nodeInfo.setTerm(leaderNode.getTerm());
+							nodeInfo.setLeaderKey(reqNode.getLeaderKey());
+							nodeInfo.setTerm(reqNode.getTerm());
 						}
 					}
-					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(leaderNode));
+					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(reqNode));
 				}
 				if(nodeInfo.getLeaderKey()==null) {
-					nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
+					nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 				}else {
-					if(leaderNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3])) {
-						nodeInfo.setLeaderKey(leaderNode.getLeaderKey());
+					if(reqNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3])) {
+						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
 				}
 				nodeInfo.getLeaderPingNum().incrementAndGet();

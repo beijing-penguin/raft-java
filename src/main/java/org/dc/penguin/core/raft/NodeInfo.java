@@ -12,14 +12,14 @@ public class NodeInfo {
 	private String host;
 	private int dataServerPort;
 	private int electionServerPort;
-	private AtomicInteger haveVoteNum = new AtomicInteger(1);//
-	private boolean isLocalhost;
+	private AtomicInteger haveVoteNum = new AtomicInteger(1);//已有投票数
+	private boolean isLocalhost;//是否属于本地ip
 	private int role = RoleType.FOLLOWER;//当前身份
-	private AtomicInteger leaderPingNum = new AtomicInteger(0);
-	private AtomicInteger voteTotalNum = new AtomicInteger(0);
-	private String leaderKey;//当前leaderKey=ip+dataServerPort+electionServerPort
+	private AtomicInteger leaderPingNum = new AtomicInteger(0);//领导ping数
+	private AtomicInteger voteTotalNum = new AtomicInteger(0);//总投票数
+	private String leaderKey;//当前leaderKey=ip:dataServerPort:electionServerPort
 	private AtomicInteger dataIndex = new AtomicInteger(0);//数据索引
-	private AtomicInteger term = new AtomicInteger(0);//任期
+	private AtomicInteger term = new AtomicInteger(0);//任期号
 	
 	
 	public AtomicInteger getTerm() {
