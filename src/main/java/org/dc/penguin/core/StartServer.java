@@ -106,6 +106,7 @@ public class StartServer {
 												break;
 											}
 											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
+												LOG.info("选举成功...");
 												nodeInfo.setRole(RoleType.LEADER);
 												NodeUtils.sendLeaderPing(nodeInfo);
 												nodeInfo.getVoteTotalNum().set(0);
