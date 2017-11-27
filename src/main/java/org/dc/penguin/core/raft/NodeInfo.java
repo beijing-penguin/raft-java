@@ -1,5 +1,6 @@
 package org.dc.penguin.core.raft;
 
+import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.dc.penguin.core.pojo.RoleType;
@@ -15,7 +16,7 @@ public class NodeInfo {
 	private AtomicInteger haveVoteNum = new AtomicInteger(1);//已有投票数
 	private boolean isLocalhost;//是否属于本地ip
 	private int role = RoleType.FOLLOWER;//当前身份
-	private AtomicInteger leaderPingNum = new AtomicInteger(0);//领导ping数
+	private BigInteger leaderPingNum = new BigInteger("0");//领导ping数
 	private AtomicInteger voteTotalNum = new AtomicInteger(0);//总投票数
 	private String leaderKey;//当前leaderKey=ip:dataServerPort:electionServerPort
 	private AtomicInteger dataIndex = new AtomicInteger(0);//数据索引
@@ -85,11 +86,10 @@ public class NodeInfo {
 	public void setRole(int role) {
 		this.role = role;
 	}
-	public AtomicInteger getLeaderPingNum() {
+	public BigInteger getLeaderPingNum() {
 		return leaderPingNum;
 	}
-	public void setLeaderPingNum(AtomicInteger leaderPingNum) {
+	public void setLeaderPingNum(BigInteger leaderPingNum) {
 		this.leaderPingNum = leaderPingNum;
 	}
-	
 }

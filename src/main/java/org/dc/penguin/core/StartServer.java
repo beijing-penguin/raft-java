@@ -1,5 +1,6 @@
 package org.dc.penguin.core;
 
+import java.math.BigInteger;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -82,16 +83,16 @@ public class StartServer {
 									Thread.sleep(5000);//选举超时5秒
 									if(nodeInfo.getRole()==RoleType.LEADER) {
 										continue;
-									}else if(nodeInfo.getLeaderPingNum().get()>leaderPingNum){
-										leaderPingNum = nodeInfo.getLeaderPingNum().get();
+									}else if(nodeInfo.getLeaderPingNum().intValue()>leaderPingNum){
+										leaderPingNum = nodeInfo.getLeaderPingNum().intValue();
 									}else {
 										while(true) {
-											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().get()+"-"+leaderPingNum);
+											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().intValue()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
 											nodeInfo.setLeaderKey(null);//设置该节点无leaderKey
 											
-											int leaderPingNum2 = nodeInfo.getLeaderPingNum().get();
-											LOG.info(nodeInfo.getLeaderPingNum().get()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
+											int leaderPingNum2 = nodeInfo.getLeaderPingNum().intValue();
+											LOG.info(nodeInfo.getLeaderPingNum().intValue()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
 											//优先投自己一票
 											nodeInfo.getVoteTotalNum().incrementAndGet();
 											nodeInfo.getHaveVoteNum().incrementAndGet();
@@ -100,7 +101,7 @@ public class StartServer {
 											NodeUtils.sendVote(nodeInfo);//向所有其他服务器发起投票申请，其他服务器接受到邀请后，是否同意的条件是任期号大于该node，和数据索引大于等于该node
 											Thread.sleep(3000);//3秒后获取投票结果
 											LOG.info(nodeInfo.getHost()+"投票结果voteTotalNum="+nodeInfo.getVoteTotalNum());
-											if(nodeInfo.getLeaderPingNum().get()>leaderPingNum2) {//已经存在leader
+											if(nodeInfo.getLeaderPingNum().intValue()>leaderPingNum2) {//已经存在leader
 												nodeInfo.getVoteTotalNum().set(0);
 												break;
 											}
@@ -297,7 +298,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
 				}
-				nodeInfo.getLeaderPingNum().incrementAndGet();
+				nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum().add(new BigInteger("1")));
 				break;
 			default:
 				break;
