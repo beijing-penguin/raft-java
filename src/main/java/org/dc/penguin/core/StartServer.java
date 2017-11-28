@@ -283,22 +283,23 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 						nodeInfo.setRole(RoleType.FOLLOWER);
 					}
 				}else {
-					for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {//设置本节点内存中leaderNode的信息。
+					/*for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {//设置本节点内存中leaderNode的信息。
 						if(nodeInfo.getHost().equals(reqNode.getHost()) && nodeInfo.getElectionServerPort() == reqNode.getElectionServerPort()) {
 							nodeInfo.setRole(RoleType.LEADER);
 							nodeInfo.setLeaderKey(reqNode.getLeaderKey());
-							nodeInfo.setTerm(reqNode.getTerm());
+							//nodeInfo.setTerm(reqNode.getTerm());
 						}
-					}
+					}*/
+					nodeInfo.setRole(RoleType.LEADER);
 					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(reqNode));
 				}
-				if(nodeInfo.getLeaderKey()==null) {
+				/*if(nodeInfo.getLeaderKey()==null) {
 					nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 				}else {
 					if(reqNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3])) {
 						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
-				}
+				}*/
 				nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum().add(new BigInteger("1")));
 				break;
 			default:
