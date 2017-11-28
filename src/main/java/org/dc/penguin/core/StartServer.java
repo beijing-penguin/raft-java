@@ -108,6 +108,7 @@ public class StartServer {
 											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
 												LOG.info("选举成功...");
 												nodeInfo.setRole(RoleType.LEADER);
+												nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
 												NodeUtils.sendLeaderPing(nodeInfo);
 												nodeInfo.getVoteTotalNum().set(0);
 												break;
@@ -292,13 +293,13 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 					}
 					nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(reqNode));
 				}
-				/*if(nodeInfo.getLeaderKey()==null) {
+				if(nodeInfo.getLeaderKey()==null) {
 					nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 				}else {
-					if(reqNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3])) {
+					if(reqNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3]) && reqNode.getDataIndex().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[4])) {
 						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
-				}*/
+				}
 				nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum().add(new BigInteger("1")));
 				break;
 			default:
