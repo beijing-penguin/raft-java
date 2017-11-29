@@ -4,7 +4,6 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 
 public class SystemUtils {
@@ -29,31 +28,5 @@ public class SystemUtils {
 			}  
 		}
 		return ipSet;
-	}
-	/*public static LocalStateMachine getOnlineLeader(){
-		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-			LocalStateMachine lsm = initConfig.getConnVector().get(i);
-			if(lsm.getRole() == Role.LEADER){
-				
-			}
-		}
-		for (int i = 0; i < initConfig.getConnVector().size(); i++) {
-			try {
-				LocalStateMachine machine = initConfig.getConnVector().get(i);
-				NettyConnection connection = new NettyConnection(machine.getHost(), machine.getPort());
-				Message rt_msg = connection.sendMessage(RaftMessageFactory.createGetLeaderMsg());
-
-				if(rt_msg.getReqType()==MsgType.YES_LEADER){
-					return machine;
-				}
-			} catch (Exception e) {
-				LOG.info("",e);
-			}
-		}
-		return null;
-	}*/
-	public static void main(String[] args) throws Exception {
-		System.out.println(new Random().nextInt(10)*1000);
-		System.out.println(SystemUtils.getAllLocalHostIP());
 	}
 }

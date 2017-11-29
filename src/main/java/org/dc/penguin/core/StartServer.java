@@ -1,6 +1,9 @@
 package org.dc.penguin.core;
 
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -10,6 +13,7 @@ import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
 import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
+import org.dc.penguin.core.utils.ConfigManager;
 import org.dc.penguin.core.utils.NodeUtils;
 
 import com.alibaba.fastjson.JSON;
@@ -35,7 +39,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	private static Log LOG = LogFactory.getLog(StartServer.class);
 	public static void main(String[] args) throws Exception {
-		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
+		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -59,7 +63,7 @@ public class StartServer {
 			}
 		}
 
-		for (NodeInfo nodeInfo: ConfigInfo.getNodeConfigList()) {
+		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -90,14 +94,14 @@ public class StartServer {
 											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().intValue()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
 											nodeInfo.setLeaderKey(null);//设置该节点无leaderKey
-											
+
 											int leaderPingNum2 = nodeInfo.getLeaderPingNum().intValue();
 											LOG.info(nodeInfo.getLeaderPingNum().intValue()+"-"+JSON.toJSONString(nodeInfo)+"发起vote");
 											//优先投自己一票
 											nodeInfo.getVoteTotalNum().incrementAndGet();
 											nodeInfo.getHaveVoteNum().incrementAndGet();
 											nodeInfo.getTerm().incrementAndGet();//任期号加1，
-											
+
 											NodeUtils.sendVote(nodeInfo);//向所有其他服务器发起投票申请，其他服务器接受到邀请后，是否同意的条件是任期号大于该node，和数据索引大于等于该node
 											Thread.sleep(3000);//3秒后获取投票结果
 											LOG.info(nodeInfo.getHost()+"投票结果voteTotalNum="+nodeInfo.getVoteTotalNum());
@@ -105,7 +109,7 @@ public class StartServer {
 												nodeInfo.getVoteTotalNum().set(0);
 												break;
 											}
-											if(nodeInfo.getVoteTotalNum().get()>ConfigInfo.getNodeConfigList().size()/2 ) {
+											if(nodeInfo.getVoteTotalNum().get()>NodeConfigInfo.getNodeConfigList().size()/2 ) {
 												LOG.info("选举成功...");
 												nodeInfo.setRole(RoleType.LEADER);
 												nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
@@ -180,29 +184,50 @@ class DataServerChannelHandler extends ChannelInitializer<SocketChannel>{
 	}
 }
 class DataServerHandler extends SimpleChannelInboundHandler<String> {
+	private static Log LOG = LogFactory.getLog(DataServerHandler.class);
 	private NodeInfo nodeInfo;
 	public DataServerHandler(NodeInfo nodeInfo){
 		this.nodeInfo = nodeInfo;
 	}
 	@Override
-	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
-		System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
-		Message message = JSON.parseObject(msg,Message.class);
+	protected void channelRead0(ChannelHandlerContext ctx, String msg) {
+		try {
+			System.out.println(ctx.channel().remoteAddress() + " Say : " + msg);
+			Message message = JSON.parseObject(msg,Message.class);
 
-		switch (message.getMsgCode()) {
-		case MsgType.GET_DATA:
-			/*byte[] value = nodeConfig.getData().get(message.getKey());
+			switch (message.getMsgCode()) {
+			case MsgType.GET_DATA:
+				/*byte[] value = nodeConfig.getData().get(message.getKey());
 			message.setValue(value);
 			message.setRtnCode(MsgType.SUCCESS);
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");*/
-			break;
-		case MsgType.SET_DATA:
-			/*nodeConfig.getData().put(message.getKey(), message.getValue());
-			message.setRtnCode(MsgType.SUCCESS);
-			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");*/
-			break;
-		default:
-			break;
+				break;
+			case MsgType.SET_DATA:
+				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {//通知超过1/3的其他follower，提交日志、
+					//先保存在自己的log中，然后通知其他follower
+					Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), message.getValue(),StandardOpenOption.APPEND);
+					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
+						if(!node.getHost().equals(nodeInfo.getHost())) {
+							new Thread(new Runnable() {
+								@Override
+								public void run() {
+									
+								}
+							}).start();
+						}
+					}
+				}else {
+					//回应no_leader
+				}
+				break;
+			default:
+				break;
+			}
+		}catch (Exception e) {
+			LOG.error("",e);
+			Message ms =new Message();
+			ms.setMsgCode(MsgType.FAIL);
+			ctx.channel().writeAndFlush(ms.toJSONString());
 		}
 	}
 
@@ -284,7 +309,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 						nodeInfo.setRole(RoleType.FOLLOWER);
 					}
 				}else {
-					for (NodeInfo node_config : ConfigInfo.getNodeConfigList()) {//更新本节点内存中leaderNode的信息。
+					for (NodeInfo node_config : NodeConfigInfo.getNodeConfigList()) {//更新本节点内存中leaderNode的信息。
 						if(node_config.getHost().equals(reqNode.getHost()) && node_config.getElectionServerPort() == reqNode.getElectionServerPort()) {
 							node_config.setRole(RoleType.LEADER);
 							node_config.setLeaderKey(reqNode.getLeaderKey());

@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.penguin.core.ConfigInfo;
+import org.dc.penguin.core.NodeConfigInfo;
 import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
 import org.dc.penguin.core.raft.NodeInfo;
@@ -77,7 +77,7 @@ public class NettyConnection{
 								break;
 							case MsgType.VOTE:
 								NodeInfo node = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
-								for (NodeInfo nodeInfo : ConfigInfo.getNodeConfigList()) {
+								for (NodeInfo nodeInfo : NodeConfigInfo.getNodeConfigList()) {
 									if(nodeInfo.getHost().equals(node.getHost()) && nodeInfo.getElectionServerPort() == node.getElectionServerPort()) {
 										nodeInfo.getVoteTotalNum().incrementAndGet();
 									}

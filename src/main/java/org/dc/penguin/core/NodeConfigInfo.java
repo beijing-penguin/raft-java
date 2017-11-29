@@ -11,7 +11,7 @@ import org.dc.penguin.core.utils.SystemUtils;
 
 import com.alibaba.fastjson.JSON;
 
-public class ConfigInfo {
+public class NodeConfigInfo {
 	static {
 		new Thread(new Runnable() {
 			@Override
@@ -49,22 +49,6 @@ public class ConfigInfo {
 				}
 			}
 		}
-		/*for (Enumeration<Object> key : ) {
-			String pro_key = key.toString();
-			if(pro_key.startsWith("server")){
-				String[] value_arr = prop.getProperty(pro_key).split(":");
-				String host = value_arr[0];
-
-				LocalMachine machine = new LocalMachine();
-				machine.setDataServerPort(Integer.parseInt(value_arr[1]));
-				machine.setElectionServerPort(Integer.parseInt(value_arr[2]));
-				machine.setHost(host);
-				if((InetAddress.getByName(value_arr[0]).getHostAddress().equals("127.0.0.1") || SystemUtils.getAllLocalHostIP().contains(value_arr[0]))){
-					machine.setLocalhost(true);
-				}
-				machineVector.add(machine);
-			}
-		}*/
 		return machineVector;
 	}
 }
