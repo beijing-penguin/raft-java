@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
@@ -15,6 +16,7 @@ import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
 import org.dc.penguin.core.utils.ConfigManager;
 import org.dc.penguin.core.utils.NodeUtils;
+import org.dc.penguin.core.utils.SocketConnection;
 
 import com.alibaba.fastjson.JSON;
 
@@ -201,23 +203,45 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 			message.setValue(value);
 			message.setRtnCode(MsgType.SUCCESS);
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");*/
+				ctx.channel().writeAndFlush(message.toJSONString());
 				break;
 			case MsgType.SET_DATA:
 				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {//通知超过1/3的其他follower，提交日志、
 					//先保存在自己的log中，然后通知其他follower
 					Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), message.getValue(),StandardOpenOption.APPEND);
+					CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size());
 					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
 						if(!node.getHost().equals(nodeInfo.getHost())) {
 							new Thread(new Runnable() {
 								@Override
 								public void run() {
-									
+									try {
+										SocketConnection conn = new SocketConnection(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+										Message ms = conn.sendMessage(message);
+										if(ms.getMsgCode()==MsgType.SUCCESS) {
+											cdl.countDown();
+										}
+									} catch (Exception e) {
+										LOG.error("",e);
+									}
 								}
 							}).start();
 						}
 					}
+					cdl.await(5,TimeUnit.SECONDS);
+					if((NodeConfigInfo.getNodeConfigList().size()-cdl.getCount())>NodeConfigInfo.getNodeConfigList().size()/3) {
+						Message msss = new Message();
+						msss.setMsgCode(MsgType.SUCCESS);
+						ctx.channel().writeAndFlush(msss.toJSONString());
+					}else {
+						Message msss = new Message();
+						msss.setMsgCode(MsgType.FAIL);
+						ctx.channel().writeAndFlush(msss.toJSONString());
+					}
 				}else {
-					//回应no_leader
+					Message msss = new Message();
+					msss.setMsgCode(MsgType.NO_LEADER);
+					ctx.channel().writeAndFlush(msss.toJSONString());
 				}
 				break;
 			default:
