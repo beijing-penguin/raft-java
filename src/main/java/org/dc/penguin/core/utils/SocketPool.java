@@ -9,9 +9,14 @@ import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
 
 public class SocketPool implements PooledObjectFactory<SocketConnection> {
-
-	private String host = "192.168.1.109";
-	private int port = 8880;
+	
+	private String host;
+	private int port;
+	
+	public SocketPool(String host, int port){
+		this.host = host;
+		this.port = port;
+	}
 	private GenericObjectPool<SocketConnection> objectPool;
 	
 	@Override
@@ -58,7 +63,7 @@ public class SocketPool implements PooledObjectFactory<SocketConnection> {
 	}
 
 	public static void main(String[] args) throws Exception {
-		SocketPool pool = new SocketPool();
+		SocketPool pool = new SocketPool("192.168.1.109",8880);
 		GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
 		poolConfig.setMaxTotal(5);
 		GenericObjectPool<SocketConnection> objectPool = new GenericObjectPool<SocketConnection>(pool,poolConfig);

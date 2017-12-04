@@ -7,9 +7,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -21,8 +18,6 @@ import com.alibaba.fastjson.JSON;
 public class SocketConnection {
 	private static Log LOG = LogFactory.getLog(SocketConnection.class);
 
-	private String host;
-	private int port;
 	private BufferedReader br;
 	private InputStreamReader isr;
 	private InputStream is;
@@ -32,26 +27,29 @@ public class SocketConnection {
 	private GenericObjectPool<SocketConnection> objectPool;
 
 	public SocketConnection(String host, int port) throws Exception {
-		this.host = host;
-		this.port = port;
 		//创建一个客户端socket
 		socket = new Socket(host,port);
 	}
 	public Message sendMessage(Message msg) throws Exception{
-		//向服务器端传递信息
-		ots = socket.getOutputStream();
-		pw = new PrintWriter(ots);
-		pw.write(msg.toJSONString());
-		pw.flush();
-		//关闭输出流
-		socket.shutdownOutput();
-		//获取服务器端传递的数据
-		is = socket.getInputStream();
-		isr = new InputStreamReader(is);
-		br = new BufferedReader(isr);
-		String info = null;
-		while((info=br.readLine())!=null){
-			return JSON.parseObject(info,Message.class);
+		try {
+			//向服务器端传递信息
+			ots = socket.getOutputStream();
+			pw = new PrintWriter(ots);
+			pw.write(msg.toJSONString());
+			pw.flush();
+			//关闭输出流
+			socket.shutdownOutput();
+			//获取服务器端传递的数据
+			is = socket.getInputStream();
+			isr = new InputStreamReader(is);
+			br = new BufferedReader(isr);
+			String info = null;
+			while((info=br.readLine())!=null){
+				return JSON.parseObject(info,Message.class);
+			}
+		}catch (Exception e) {
+			this.destroy();
+			throw e;
 		}
 		return null;
 	}

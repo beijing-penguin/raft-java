@@ -16,7 +16,9 @@ import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
 import org.dc.penguin.core.utils.ConfigManager;
 import org.dc.penguin.core.utils.NodeUtils;
+import org.dc.penguin.core.utils.SocketCilentUtils;
 import org.dc.penguin.core.utils.SocketConnection;
+import org.dc.penguin.core.utils.SocketPool;
 
 import com.alibaba.fastjson.JSON;
 
@@ -216,7 +218,8 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 								@Override
 								public void run() {
 									try {
-										SocketConnection conn = new SocketConnection(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+										SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+										SocketConnection conn = pool.getSocketConnection();
 										Message ms = conn.sendMessage(message);
 										if(ms.getMsgCode()==MsgType.SUCCESS) {
 											cdl.countDown();
