@@ -210,7 +210,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 			case MsgType.SET_DATA:
 				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {//通知超过1/3的其他follower，提交日志、
 					//先保存在自己的log中，然后通知其他follower
-					Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), message.getValue(),StandardOpenOption.APPEND);
+					Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), msg.getBytes(),StandardOpenOption.APPEND);
 					CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size());
 					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
 						if(!node.getHost().equals(nodeInfo.getHost())) {
@@ -383,5 +383,8 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 		LOG.info("链接异常中断:"+cause.getStackTrace());
 		ctx.close();
 	}
-
+	/*public static void main(String[] args) throws Exception {
+		ConfigManager.getInstance().loadProps("config.properties");
+		Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), "段感受到asd".getBytes(),StandardOpenOption.APPEND);
+	}*/
 }
