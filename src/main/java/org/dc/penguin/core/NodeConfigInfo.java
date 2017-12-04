@@ -1,5 +1,6 @@
 package org.dc.penguin.core;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.util.Enumeration;
 import java.util.Vector;
@@ -50,5 +51,15 @@ public class NodeConfigInfo {
 			}
 		}
 		return machineVector;
+	}
+	public static void initConfig() throws Exception {
+		ConfigManager.getInstance().loadProps("config.properties");
+		File file = new File(ConfigManager.getInstance().get("config.properties", "dataLogDir"));
+		if(!file.getParentFile().exists()) {
+			file.getParentFile().mkdirs();
+		}
+		if(!file.exists()) {
+			file.createNewFile();
+		}
 	}
 }

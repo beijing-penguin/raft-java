@@ -43,6 +43,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	private static Log LOG = LogFactory.getLog(StartServer.class);
 	public static void main(String[] args) throws Exception {
+		NodeConfigInfo.initConfig();
 		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
