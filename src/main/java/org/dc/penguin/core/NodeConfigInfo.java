@@ -55,9 +55,9 @@ public class NodeConfigInfo {
 		}
 		return machineVector;
 	}
-	public static void initConfig() throws Exception {
+	public static void initConfig(NodeInfo nodeInfo) throws Exception {
 		ConfigManager.getInstance().loadProps("config.properties");
-		dataLogDir = ConfigManager.getInstance().get("config.properties", "dataLogDir");
+		dataLogDir = ConfigManager.getInstance().get("config.properties", "dataLogDir")+nodeInfo.getDataServerPort();
 		File file = new File(dataLogDir);
 		if(!file.getParentFile().exists()) {
 			file.getParentFile().mkdirs();

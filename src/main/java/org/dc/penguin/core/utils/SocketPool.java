@@ -78,7 +78,7 @@ public class SocketPool implements PooledObjectFactory<SocketConnection> {
 					try {
 						conn = pool.getSocketConnection();
 						Message ms = new Message();
-						ms.setMsgCode(MsgType.SET_DATA);
+						ms.setMsgCode(MsgType.LEADER_SET_DATA);
 						conn.sendMessage(ms);
 						conn.close();
 					} catch (Exception e) {

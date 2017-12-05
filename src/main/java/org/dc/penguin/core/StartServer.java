@@ -42,11 +42,11 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	private static Log LOG = LogFactory.getLog(StartServer.class);
 	public static void main(String[] args) throws Exception {
-		NodeConfigInfo.initConfig();
 		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				//初始化nodeInfo中的term和dataIndex信息。
 				NodeUtils.initNodeInfo(nodeInfo);
+				NodeConfigInfo.initConfig(nodeInfo);
 				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -210,49 +210,63 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");*/
 				ctx.channel().writeAndFlush(message.toJSONString());
 				break;
-			case MsgType.SET_DATA:
-					if(nodeInfo.getRole()==RoleType.LEADER) {
-						nodeInfo.getDataIndex().incrementAndGet();
-						//先保存在自己的log中，然后通知其他follower
-						message.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
-						Files.write(Paths.get(NodeConfigInfo.dataLogDir), message.toJSONString().getBytes(),StandardOpenOption.APPEND);
-						
-						CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size());
-						for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
-							if(!node.getHost().equals(nodeInfo.getHost())) {
-								new Thread(new Runnable() {
-									@Override
-									public void run() {
-										try {
-											SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
-											SocketConnection conn = pool.getSocketConnection();
-											Message ms = conn.sendMessage(message);
-											if(ms.getMsgCode()==MsgType.SUCCESS) {
-												cdl.countDown();
-											}
-										} catch (Exception e) {
-											LOG.error("",e);
+			case MsgType.LEADER_SET_DATA:
+				Files.write(Paths.get(NodeConfigInfo.dataLogDir), (msg+"\n").getBytes(),StandardOpenOption.APPEND);
+				
+				Message msss = new Message();
+				msss.setMsgCode(MsgType.SUCCESS);
+				ctx.channel().writeAndFlush(msss.toJSONString());
+				break;
+			case MsgType.CLIENT_SET_DATA:
+				//确认身份
+				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {
+					nodeInfo.getDataIndex().incrementAndGet();
+					//先保存在自己的log中，然后通知其他follower
+					message.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
+					Files.write(Paths.get(NodeConfigInfo.dataLogDir), message.toJSONString().getBytes(),StandardOpenOption.APPEND);
+					message.setMsgCode(MsgType.LEADER_SET_DATA);
+					
+					CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size()/3);
+					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
+						if(!node.getHost().equals(nodeInfo.getHost())) {
+							new Thread(new Runnable() {
+								@Override
+								public void run() {
+									try {
+										SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+										SocketConnection conn = pool.getSocketConnection();
+										Message ms = conn.sendMessage(message);
+										if(ms.getMsgCode()==MsgType.SUCCESS) {
+											cdl.countDown();
 										}
+									} catch (Exception e) {
+										LOG.error("",e);
 									}
-								}).start();
-							}
+								}
+							}).start();
 						}
-						cdl.await(5,TimeUnit.SECONDS);
-						
-						if((NodeConfigInfo.getNodeConfigList().size()-cdl.getCount())>NodeConfigInfo.getNodeConfigList().size()/3) {
-							Message msss = new Message();
-							msss.setMsgCode(MsgType.SUCCESS);
-							ctx.channel().writeAndFlush(msss.toJSONString());
-						}else {
-							Message msss = new Message();
-							msss.setMsgCode(MsgType.FAIL);
-							ctx.channel().writeAndFlush(msss.toJSONString());
-						}
-					}else {
-						Files.write(Paths.get(NodeConfigInfo.dataLogDir), (msg+"\n").getBytes(),StandardOpenOption.APPEND);
 					}
+					cdl.await(5,TimeUnit.SECONDS);
+
+					if(cdl.getCount()==0) {
+						Message mssss = new Message();
+						mssss.setMsgCode(MsgType.SUCCESS);
+						ctx.channel().writeAndFlush(mssss.toJSONString());
+					}else {
+						Message mssss = new Message();
+						mssss.setMsgCode(MsgType.FAIL);
+						ctx.channel().writeAndFlush(mssss.toJSONString());
+					}
+				}else {
+					Message mssss = new Message();
+					mssss.setMsgCode(MsgType.NO_LEADER);
+					ctx.channel().writeAndFlush(mssss.toJSONString());
+				}
 				break;
 			default:
+				Message mssss = new Message();
+				mssss.setMsgCode(MsgType.FAIL);
+				ctx.channel().writeAndFlush(mssss.toJSONString());
 				break;
 			}
 		}catch (Exception e) {
