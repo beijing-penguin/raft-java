@@ -29,6 +29,9 @@ public class NodeConfigInfo {
 		}).start();
 	}
 	private static Vector<NodeInfo> machineVector = new Vector<NodeInfo>();
+	
+	public static String dataLogDir;
+	
 	public static Vector<NodeInfo> getNodeConfigList() throws Exception{
 		if(machineVector.size()==0) {
 			PropertiesUtil prop = ConfigManager.getInstance().loadProps("config.properties");
@@ -54,7 +57,8 @@ public class NodeConfigInfo {
 	}
 	public static void initConfig() throws Exception {
 		ConfigManager.getInstance().loadProps("config.properties");
-		File file = new File(ConfigManager.getInstance().get("config.properties", "dataLogDir"));
+		dataLogDir = ConfigManager.getInstance().get("config.properties", "dataLogDir");
+		File file = new File(dataLogDir);
 		if(!file.getParentFile().exists()) {
 			file.getParentFile().mkdirs();
 		}

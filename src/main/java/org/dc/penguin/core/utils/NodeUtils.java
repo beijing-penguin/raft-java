@@ -1,7 +1,8 @@
 package org.dc.penguin.core.utils;
 
+import java.io.RandomAccessFile;
 import java.util.concurrent.atomic.AtomicInteger;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.NodeConfigInfo;
@@ -75,5 +76,35 @@ public class NodeUtils {
 	}
 	public static String createLeaderKey(NodeInfo nodeInfo) {
 		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+nodeInfo.getDataIndex();
+	}
+	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
+		RandomAccessFile raf = null;
+		try {
+			raf = new RandomAccessFile(NodeConfigInfo.dataLogDir, "r");
+			long len = raf.length();
+			String lastLine = null;
+			if (len != 0L) {
+				long pos = len - 1;
+				while (pos > 0) {
+					pos--;
+					raf.seek(pos);  
+					if (raf.readByte() == '\n') {  
+						lastLine = raf.readLine();  
+						break;
+					}
+				}
+			}
+			if(StringUtils.isNotEmpty(lastLine)) {
+				Message message = JSON.parseObject(lastLine,Message.class);
+				nodeInfo.setDataIndex(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[4])));
+				nodeInfo.setTerm(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[3])));
+			}
+		}catch (Exception e) {
+			throw e;
+		}finally {
+			if(raf!=null) {
+				raf.close();
+			}
+		}
 	}
 }

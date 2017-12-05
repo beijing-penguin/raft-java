@@ -14,7 +14,6 @@ import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
 import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
-import org.dc.penguin.core.utils.ConfigManager;
 import org.dc.penguin.core.utils.NodeUtils;
 import org.dc.penguin.core.utils.SocketCilentUtils;
 import org.dc.penguin.core.utils.SocketConnection;
@@ -46,6 +45,9 @@ public class StartServer {
 		NodeConfigInfo.initConfig();
 		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
+				//初始化nodeInfo中的term和dataIndex信息。
+				NodeUtils.initNodeInfo(nodeInfo);
+				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
 				ServerBootstrap bootstrap = new ServerBootstrap();
@@ -209,44 +211,46 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 				ctx.channel().writeAndFlush(message.toJSONString());
 				break;
 			case MsgType.SET_DATA:
-				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {//通知超过1/3的其他follower，提交日志、
-					//先保存在自己的log中，然后通知其他follower
-					Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), msg.getBytes(),StandardOpenOption.APPEND);
-					CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size());
-					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
-						if(!node.getHost().equals(nodeInfo.getHost())) {
-							new Thread(new Runnable() {
-								@Override
-								public void run() {
-									try {
-										SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
-										SocketConnection conn = pool.getSocketConnection();
-										Message ms = conn.sendMessage(message);
-										if(ms.getMsgCode()==MsgType.SUCCESS) {
-											cdl.countDown();
+					if(nodeInfo.getRole()==RoleType.LEADER) {
+						nodeInfo.getDataIndex().incrementAndGet();
+						//先保存在自己的log中，然后通知其他follower
+						message.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
+						Files.write(Paths.get(NodeConfigInfo.dataLogDir), message.toJSONString().getBytes(),StandardOpenOption.APPEND);
+						
+						CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size());
+						for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
+							if(!node.getHost().equals(nodeInfo.getHost())) {
+								new Thread(new Runnable() {
+									@Override
+									public void run() {
+										try {
+											SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+											SocketConnection conn = pool.getSocketConnection();
+											Message ms = conn.sendMessage(message);
+											if(ms.getMsgCode()==MsgType.SUCCESS) {
+												cdl.countDown();
+											}
+										} catch (Exception e) {
+											LOG.error("",e);
 										}
-									} catch (Exception e) {
-										LOG.error("",e);
 									}
-								}
-							}).start();
+								}).start();
+							}
 						}
-					}
-					cdl.await(5,TimeUnit.SECONDS);
-					if((NodeConfigInfo.getNodeConfigList().size()-cdl.getCount())>NodeConfigInfo.getNodeConfigList().size()/3) {
-						Message msss = new Message();
-						msss.setMsgCode(MsgType.SUCCESS);
-						ctx.channel().writeAndFlush(msss.toJSONString());
+						cdl.await(5,TimeUnit.SECONDS);
+						
+						if((NodeConfigInfo.getNodeConfigList().size()-cdl.getCount())>NodeConfigInfo.getNodeConfigList().size()/3) {
+							Message msss = new Message();
+							msss.setMsgCode(MsgType.SUCCESS);
+							ctx.channel().writeAndFlush(msss.toJSONString());
+						}else {
+							Message msss = new Message();
+							msss.setMsgCode(MsgType.FAIL);
+							ctx.channel().writeAndFlush(msss.toJSONString());
+						}
 					}else {
-						Message msss = new Message();
-						msss.setMsgCode(MsgType.FAIL);
-						ctx.channel().writeAndFlush(msss.toJSONString());
+						Files.write(Paths.get(NodeConfigInfo.dataLogDir), (msg+"\n").getBytes(),StandardOpenOption.APPEND);
 					}
-				}else {
-					Message msss = new Message();
-					msss.setMsgCode(MsgType.NO_LEADER);
-					ctx.channel().writeAndFlush(msss.toJSONString());
-				}
 				break;
 			default:
 				break;
