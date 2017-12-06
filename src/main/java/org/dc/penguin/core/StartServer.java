@@ -44,9 +44,9 @@ public class StartServer {
 	public static void main(String[] args) throws Exception {
 		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
+				NodeConfigInfo.initConfig(nodeInfo);
 				//初始化nodeInfo中的term和dataIndex信息。
 				NodeUtils.initNodeInfo(nodeInfo);
-				NodeConfigInfo.initConfig(nodeInfo);
 				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -226,7 +226,8 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 					Files.write(Paths.get(NodeConfigInfo.dataLogDir), message.toJSONString().getBytes(),StandardOpenOption.APPEND);
 					message.setMsgCode(MsgType.LEADER_SET_DATA);
 					
-					CountDownLatch cdl = new CountDownLatch(NodeConfigInfo.getNodeConfigList().size()/3);
+					int size = NodeConfigInfo.getNodeConfigList().size();
+					CountDownLatch cdl = new CountDownLatch(size/3+size%3);
 					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
 						if(!node.getHost().equals(nodeInfo.getHost())) {
 							new Thread(new Runnable() {

@@ -63,7 +63,9 @@ public class SocketPool implements PooledObjectFactory<SocketConnection> {
 	}
 
 	public static void main(String[] args) throws Exception {
-		SocketPool pool = new SocketPool("192.168.1.109",8880);
+		int i = 10;
+		System.out.println(i%3);
+		/*SocketPool pool = new SocketPool("192.168.1.109",8880);
 		GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
 		poolConfig.setMaxTotal(5);
 		GenericObjectPool<SocketConnection> objectPool = new GenericObjectPool<SocketConnection>(pool,poolConfig);
@@ -87,6 +89,6 @@ public class SocketPool implements PooledObjectFactory<SocketConnection> {
 					}
 				}
 			}).start();
-		}
+		}*/
 	}
 }  
