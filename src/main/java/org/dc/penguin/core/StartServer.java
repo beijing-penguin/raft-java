@@ -46,7 +46,7 @@ public class StartServer {
 			if(nodeInfo.isLocalhost()) {
 				NodeConfigInfo.initConfig(nodeInfo);
 				//初始化nodeInfo中的term和dataIndex信息。
-				NodeUtils.initNodeInfo(nodeInfo);
+				//NodeUtils.initNodeInfo(nodeInfo);
 				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -219,7 +219,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 				break;
 			case MsgType.CLIENT_SET_DATA:
 				//确认身份
-				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1])) {
+				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1]) && Integer.parseInt(message.getLeaderKey().split(":")[3])==nodeInfo.getTerm().get()) {
 					nodeInfo.getDataIndex().incrementAndGet();
 					//先保存在自己的log中，然后通知其他follower
 					message.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
@@ -234,7 +234,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 								@Override
 								public void run() {
 									try {
-										SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+										SocketPool pool = SocketCilentUtils.getSocketPool(node.getHost(), node.getDataServerPort());
 										SocketConnection conn = pool.getSocketConnection();
 										Message ms = conn.sendMessage(message);
 										if(ms.getMsgCode()==MsgType.SUCCESS) {
@@ -345,7 +345,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 			NodeInfo reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
-				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
+				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>nodeInfo.getTerm().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
 				}
 				break;
