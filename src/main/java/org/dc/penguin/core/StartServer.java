@@ -46,7 +46,7 @@ public class StartServer {
 			if(nodeInfo.isLocalhost()) {
 				NodeConfigInfo.initConfig(nodeInfo);
 				//初始化nodeInfo中的term和dataIndex信息。
-				//NodeUtils.initNodeInfo(nodeInfo);
+				NodeUtils.initNodeInfo(nodeInfo);
 				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
 				EventLoopGroup workerGroup = new NioEventLoopGroup();
