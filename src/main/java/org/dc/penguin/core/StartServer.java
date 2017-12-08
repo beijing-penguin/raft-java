@@ -98,6 +98,9 @@ public class StartServer {
 										leaderPingNum = nodeInfo.getLeaderPingNum().intValue();
 									}else {
 										while(true) {
+											//根据日志记录的最终数据，确定该节点所具备统治能力（权利power），即设置最大任期号和最大数据索引
+											NodeUtils.initNodeInfo(nodeInfo);
+											
 											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().intValue()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
 											nodeInfo.setLeaderKey(null);//设置该节点无leaderKey
@@ -107,9 +110,12 @@ public class StartServer {
 											//优先投自己一票
 											nodeInfo.getVoteTotalNum().incrementAndGet();
 											nodeInfo.getHaveVoteNum().incrementAndGet();
-											nodeInfo.getTerm().incrementAndGet();//任期号加1，
-
-											NodeUtils.sendVote(nodeInfo);//向所有其他服务器发起投票申请，其他服务器接受到邀请后，是否同意的条件是任期号大于该node，和数据索引大于等于该node
+											//注释下面这行代码，是取消任期号加1重新选举策略，转而改用采用二分之一选举策略，所以不适用本地任期号+1策略，作为重新选举的首要条件，
+											//原因是一次投票，二分之一策略下必定会产生有且只有一个领导，如果没有产生领导，则说明，集群宕机服务器过多，应该加入新的服务器，
+											//或者修复未联通的服务器
+											//nodeInfo.getTerm().incrementAndGet();
+											
+											NodeUtils.sendVote(nodeInfo);//向所有其他服务器发起投票申请，其他服务器接受到邀请后，是否同意的条件是数据log中的任期号大于该node，和数据log中数据索引大于等于该node
 											Thread.sleep(3000);//3秒后获取投票结果
 											LOG.info(nodeInfo.getHost()+"投票结果voteTotalNum="+nodeInfo.getVoteTotalNum());
 											if(nodeInfo.getLeaderPingNum().intValue()>leaderPingNum2) {//已经存在leader
@@ -119,6 +125,7 @@ public class StartServer {
 											if(nodeInfo.getVoteTotalNum().get()>NodeConfigInfo.getNodeConfigList().size()/2 ) {
 												LOG.info("选举成功...");
 												nodeInfo.setRole(RoleType.LEADER);
+												nodeInfo.getTerm().incrementAndGet();
 												nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
 												NodeUtils.sendLeaderPing(nodeInfo);
 												nodeInfo.getVoteTotalNum().set(0);
@@ -227,7 +234,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 					message.setMsgCode(MsgType.LEADER_SET_DATA);
 					
 					int size = NodeConfigInfo.getNodeConfigList().size();
-					CountDownLatch cdl = new CountDownLatch(size/3+size%3);
+					CountDownLatch cdl = new CountDownLatch(size/2+size%2);
 					for(NodeInfo node : NodeConfigInfo.getNodeConfigList()) {
 						if(!node.getHost().equals(nodeInfo.getHost())) {
 							new Thread(new Runnable() {
@@ -345,12 +352,14 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 			NodeInfo reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
-				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>nodeInfo.getTerm().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
+				NodeUtils.initNodeInfo(nodeInfo);//确定该节点的最大统治能力
+				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>=nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
 				}
 				break;
 			case MsgType.LEADER_PING:
-				if(nodeInfo.getRole()==RoleType.LEADER) {
+				//大于二分之一选举策略，不可能存在有多个领导的冲突问题。
+				/*if(nodeInfo.getRole()==RoleType.LEADER) {
 					if(!reqNode.getHost().equals(nodeInfo.getHost()) && nodeInfo.getTerm().get()<=reqNode.getTerm().get() ) {
 						nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(reqNode));
 						nodeInfo.setRole(RoleType.FOLLOWER);
@@ -371,7 +380,16 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 					if(reqNode.getTerm().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[3]) && reqNode.getDataIndex().get()>=Integer.parseInt(nodeInfo.getLeaderKey().split(":")[4])) {
 						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
+				}*/
+				
+				for (NodeInfo node_config : NodeConfigInfo.getNodeConfigList()) {//更新本节点内存中leaderNode的信息。
+					if(node_config.getHost().equals(reqNode.getHost()) && node_config.getElectionServerPort() == reqNode.getElectionServerPort()) {
+						node_config.setRole(RoleType.LEADER);
+						node_config.setLeaderKey(reqNode.getLeaderKey());
+						node_config.setTerm(reqNode.getTerm());
+					}
 				}
+				nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 				nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum().add(new BigInteger("1")));
 				break;
 			default:
