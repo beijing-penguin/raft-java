@@ -77,6 +77,10 @@ public class NodeUtils {
 	public static String createLeaderKey(NodeInfo nodeInfo) {
 		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+nodeInfo.getDataIndex();
 	}
+	public static String createLeaderKeyByWriteLog(NodeInfo nodeInfo) {
+		int dataIndex = nodeInfo.getDataIndex().incrementAndGet();
+		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+dataIndex;
+	}
 	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
 		RandomAccessFile raf = null;
 		try {

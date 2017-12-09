@@ -45,7 +45,7 @@ public class StartServer {
 		for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 			if(nodeInfo.isLocalhost()) {
 				NodeConfigInfo.initConfig(nodeInfo);
-				//初始化nodeInfo中的term和dataIndex信息。
+				//初始化本地节点nodeInfo中的term和dataIndex信息。
 				NodeUtils.initNodeInfo(nodeInfo);
 				
 				EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -100,7 +100,6 @@ public class StartServer {
 										while(true) {
 											//根据日志记录的最终数据，确定该节点所具备统治能力（权利power），即设置最大任期号和最大数据索引
 											NodeUtils.initNodeInfo(nodeInfo);
-											
 											System.out.println(nodeInfo.getRole()+"-"+nodeInfo.getLeaderPingNum().intValue()+"-"+leaderPingNum);
 											nodeInfo.getHaveVoteNum().set(1);//当前节点没有leaderPing，则让该节点具备投票权。
 											nodeInfo.setLeaderKey(null);//设置该节点无leaderKey
@@ -227,9 +226,8 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 			case MsgType.CLIENT_SET_DATA:
 				//确认身份
 				if(nodeInfo.getRole()==RoleType.LEADER && nodeInfo.getHost().equals(message.getLeaderKey().split(":")[0]) && nodeInfo.getDataServerPort()==Integer.parseInt(message.getLeaderKey().split(":")[1]) && Integer.parseInt(message.getLeaderKey().split(":")[3])==nodeInfo.getTerm().get()) {
-					nodeInfo.getDataIndex().incrementAndGet();
 					//先保存在自己的log中，然后通知其他follower
-					message.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
+					message.setLeaderKey(NodeUtils.createLeaderKeyByWriteLog(nodeInfo));
 					Files.write(Paths.get(NodeConfigInfo.dataLogDir), message.toJSONString().getBytes(),StandardOpenOption.APPEND);
 					message.setMsgCode(MsgType.LEADER_SET_DATA);
 					
