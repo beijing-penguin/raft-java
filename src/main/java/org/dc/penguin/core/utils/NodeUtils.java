@@ -119,7 +119,7 @@ public class NodeUtils {
 					new Thread(new Runnable() {
 						@Override
 						public void run() {
-							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getElectionServerPort());
 							SocketConnection conn = null;
 							try {
 								conn = pool.getSocketConnection();
@@ -159,6 +159,8 @@ public class NodeUtils {
 										
 										if(my_term>=node_term && my_dataIndex>node_dataIndex) {
 											syncList.add(data_msg);
+										}else {
+											break;
 										}
 									}
 								}  catch (Exception e) {

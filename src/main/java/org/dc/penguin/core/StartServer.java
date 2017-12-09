@@ -393,6 +393,11 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 				nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 				nodeInfo.setLeaderPingNum(nodeInfo.getLeaderPingNum().add(new BigInteger("1")));
 				break;
+			case MsgType.GET_DATA_POS:
+				NodeUtils.initNodeInfo(nodeInfo);
+				String rt_data = nodeInfo.getTerm().get()+":"+nodeInfo.getDataIndex().get()+"\n";
+				ctx.channel().writeAndFlush(rt_data);
+				break;
 			default:
 				break;
 			}

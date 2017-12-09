@@ -4,9 +4,6 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
-import org.dc.penguin.core.pojo.Message;
-import org.dc.penguin.core.pojo.MsgType;
 
 public class SocketPool implements PooledObjectFactory<SocketConnection> {
 	
