@@ -16,6 +16,6 @@ public class Test {
 		ms.setMsgCode(MsgType.CLIENT_SET_DATA);
 		ms.setLeaderKey("192.168.1.104:8881:7771:11:0");
 		ms.setValue("asd".getBytes());
-		System.out.println(JSON.toJSONString(conn.sendMessage(ms)));
+		System.out.println(JSON.toJSONString(conn.sendMessage(ms.toJSONString())));
 	}
 }

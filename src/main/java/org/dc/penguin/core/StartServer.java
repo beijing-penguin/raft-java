@@ -127,6 +127,9 @@ public class StartServer {
 												nodeInfo.getTerm().incrementAndGet();
 												nodeInfo.setLeaderKey(NodeUtils.createLeaderKey(nodeInfo));
 												NodeUtils.sendLeaderPing(nodeInfo);
+												//开始日志同步
+												NodeUtils.logSync(nodeInfo);
+												
 												nodeInfo.getVoteTotalNum().set(0);
 												break;
 											}
@@ -241,7 +244,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 									try {
 										SocketPool pool = SocketCilentUtils.getSocketPool(node.getHost(), node.getDataServerPort());
 										SocketConnection conn = pool.getSocketConnection();
-										Message ms = conn.sendMessage(message);
+										Message ms = JSON.parseObject(conn.sendMessage(message.toJSONString()), Message.class);
 										if(ms.getMsgCode()==MsgType.SUCCESS) {
 											cdl.countDown();
 										}

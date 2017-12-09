@@ -11,9 +11,6 @@ import java.net.Socket;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.dc.penguin.core.pojo.Message;
-
-import com.alibaba.fastjson.JSON;
 
 public class SocketConnection {
 	private static Log LOG = LogFactory.getLog(SocketConnection.class);
@@ -30,12 +27,12 @@ public class SocketConnection {
 		//创建一个客户端socket
 		socket = new Socket(host,port);
 	}
-	public Message sendMessage(Message msg) throws Exception{
+	public String sendMessage(String data) throws Exception{
 		try {
 			//向服务器端传递信息
 			ots = socket.getOutputStream();
 			pw = new PrintWriter(ots);
-			pw.write(msg.toJSONString());
+			pw.write(data);
 			pw.flush();
 			//关闭输出流
 			socket.shutdownOutput();
@@ -45,7 +42,7 @@ public class SocketConnection {
 			br = new BufferedReader(isr);
 			String info = null;
 			while((info=br.readLine())!=null){
-				return JSON.parseObject(info,Message.class);
+				return info;
 			}
 		}catch (Exception e) {
 			this.destroy();

@@ -12,4 +12,5 @@ public interface MsgType {
 	public static int PING = 400;
 	public static int LEADER_PING = 401;
 	public static int VOTE = 402;
+	public static int GET_DATA_POS = 403;
 }

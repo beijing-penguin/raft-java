@@ -1,6 +1,8 @@
 package org.dc.penguin.core.utils;
 
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -78,8 +80,7 @@ public class NodeUtils {
 		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+nodeInfo.getDataIndex();
 	}
 	public static String createLeaderKeyByWriteLog(NodeInfo nodeInfo) {
-		int dataIndex = nodeInfo.getDataIndex().incrementAndGet();
-		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+dataIndex;
+		return nodeInfo.getHost()+":"+nodeInfo.getDataServerPort()+":"+nodeInfo.getElectionServerPort()+":"+nodeInfo.getTerm().get()+":"+nodeInfo.getDataIndex().incrementAndGet();
 	}
 	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
 		RandomAccessFile raf = null;
@@ -109,6 +110,95 @@ public class NodeUtils {
 			if(raf!=null) {
 				raf.close();
 			}
+		}
+	}
+	public static void logSync(NodeInfo mynodeInfo) {
+		try {
+			for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
+				if(nodeInfo.getHost().equals(mynodeInfo.getHost()) && mynodeInfo.getElectionServerPort() != nodeInfo.getElectionServerPort())
+					new Thread(new Runnable() {
+						@Override
+						public void run() {
+							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+							SocketConnection conn = null;
+							try {
+								conn = pool.getSocketConnection();
+								Message msg = new Message();
+								msg.setMsgCode(MsgType.GET_DATA_POS);
+								String rt_str = conn.sendMessage(msg.toJSONString());
+								int node_term = Integer.parseInt(rt_str.split(":")[0]);
+								int node_dataIndex = Integer.parseInt(rt_str.split(":")[1]);
+
+								List<Message> syncList = new ArrayList<Message>(); 
+								RandomAccessFile rf = null;
+								try {
+									rf = new RandomAccessFile(NodeConfigInfo.dataLogDir, "r");
+									long len = rf.length();
+									long start = rf.getFilePointer();
+									long nextend = start + len - 1;
+									String line = null;
+									rf.seek(nextend);
+									int c = -1;
+									while (nextend > start) {
+										c = rf.read();
+										if (c == '\n' || c == '\r') {
+											line = new String(rf.readLine().getBytes("ISO-8859-1"), "utf-8");
+											nextend--;
+										}
+										nextend--;
+										rf.seek(nextend);
+										if (nextend == 0) {// 当文件指针退至文件开始处，输出第一行
+											// System.out.println(rf.readLine());
+											line = new String(rf.readLine().getBytes("ISO-8859-1"), "utf-8");
+										}
+										
+										Message data_msg = JSON.parseObject(line, Message.class);
+										
+										int my_term = Integer.parseInt(data_msg.getLeaderKey().split(":")[3]);
+										int my_dataIndex = Integer.parseInt(data_msg.getLeaderKey().split(":")[4]);
+										
+										if(my_term>=node_term && my_dataIndex>node_dataIndex) {
+											syncList.add(data_msg);
+										}
+									}
+								}  catch (Exception e) {
+									LOG.error("",e);
+								} finally {
+									try {
+										if (rf != null)
+											rf.close();
+									} catch (Exception e) {
+										LOG.error("",e);
+									}
+								}
+								
+								for (int i = syncList.size(); i > 0; i--) {
+									Message msg_sync = syncList.get(i-1);
+									msg_sync.setMsgCode(MsgType.LEADER_SET_DATA);
+									conn.sendMessage(msg_sync.toJSONString());
+								}
+							} catch (Exception e) {
+								LOG.error("",e);
+							}finally {
+								if(conn!=null) {
+									conn.close();
+								}
+							}
+						}
+					}).start();
+			}
+		} catch (Exception e) {
+			LOG.error("",e);
+		}
+	}
+	public static void main(String[] args) {
+		List<String> syncList = new ArrayList<>();
+		syncList.add("a");
+		syncList.add("b");
+		syncList.add("c");
+		
+		for (int i = syncList.size(); i > 0; i--) {
+			System.out.println(syncList.get(i-1));
 		}
 	}
 }
