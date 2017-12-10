@@ -66,7 +66,7 @@ public class NodeUtils {
 					@Override
 					public void run() {
 						try {
-							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getElectionServerPort());
 							SocketConnection conn = pool.getSocketConnection();
 							Message msg = new Message();
 							msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
