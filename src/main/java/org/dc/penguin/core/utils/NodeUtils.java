@@ -3,6 +3,8 @@ package org.dc.penguin.core.utils;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -10,6 +12,7 @@ import org.apache.commons.logging.LogFactory;
 import org.dc.penguin.core.NodeConfigInfo;
 import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MsgType;
+import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
 
 import com.alibaba.fastjson.JSON;
@@ -56,21 +59,33 @@ public class NodeUtils {
 	}
 	public static void sendLeaderPing(NodeInfo mynodeInfo) {
 		try {
+			int size = NodeConfigInfo.getNodeConfigList().size();
+			CountDownLatch cdl = new CountDownLatch(size/2+size%2);
 			for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
 						try {
-							NettyConnection conn = new NettyConnection(nodeInfo.getHost(),nodeInfo.getElectionServerPort());
+							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+							SocketConnection conn = pool.getSocketConnection();
 							Message msg = new Message();
 							msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
 							msg.setMsgCode(MsgType.LEADER_PING);
-							conn.sendMessage(msg);
+							Message ms = JSON.parseObject(conn.sendMessage(msg.toJSONString()), Message.class);
+							if(ms.getMsgCode()== MsgType.SUCCESS) {
+								cdl.countDown();
+							}
 						} catch (Exception e) {
 							LOG.error("",e);
 						}
 					}
 				}).start();
+			}
+			
+			cdl.await(5,TimeUnit.SECONDS);
+
+			if(cdl.getCount()!=0) {
+				mynodeInfo.setRole(RoleType.FOLLOWER);
 			}
 		} catch (Exception e) {
 			LOG.error("",e);
@@ -191,16 +206,6 @@ public class NodeUtils {
 			}
 		} catch (Exception e) {
 			LOG.error("",e);
-		}
-	}
-	public static void main(String[] args) {
-		List<String> syncList = new ArrayList<>();
-		syncList.add("a");
-		syncList.add("b");
-		syncList.add("c");
-		
-		for (int i = syncList.size(); i > 0; i--) {
-			System.out.println(syncList.get(i-1));
 		}
 	}
 }
