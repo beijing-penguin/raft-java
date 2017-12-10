@@ -354,6 +354,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
 				NodeUtils.initNodeInfo(nodeInfo);//确定该节点的最大统治能力
+				System.out.println("当前节点状态="+JSON.toJSONString(nodeInfo));
 				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>=nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
 				}
