@@ -202,6 +202,7 @@ public class NodeUtils {
 									line = null;
 									isOut = false;
 								}
+								System.out.println(syncList.size());
 							} catch (Exception e) {
 								LOG.error("",e);
 							} finally {
