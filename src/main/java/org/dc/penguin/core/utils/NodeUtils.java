@@ -100,7 +100,7 @@ public class NodeUtils {
 	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
 		RandomAccessFile raf = null;
 		try {
-			raf = new RandomAccessFile("/data/raft/dataLog8881", "r");
+			raf = new RandomAccessFile(NodeConfigInfo.dataLogDir, "r");
 			long len = raf.length();
 			String lastLine = null;
 			if (len != 0L) {
