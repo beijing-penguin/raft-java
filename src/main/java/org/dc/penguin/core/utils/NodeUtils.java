@@ -207,7 +207,7 @@ public class NodeUtils {
 										}
 
 										Message data_msg = JSON.parseObject(line, Message.class);
-
+										System.out.println("data_msg"+data_msg);
 										int my_term = Integer.parseInt(data_msg.getLeaderKey().split(":")[3]);
 										int my_dataIndex = Integer.parseInt(data_msg.getLeaderKey().split(":")[4]);
 
