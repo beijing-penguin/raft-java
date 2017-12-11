@@ -81,7 +81,7 @@ public class NodeUtils {
 					}
 				}).start();
 			}
-			
+
 			cdl.await(5,TimeUnit.SECONDS);
 
 			if(cdl.getCount()!=0) {
@@ -100,25 +100,64 @@ public class NodeUtils {
 	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
 		RandomAccessFile raf = null;
 		try {
-			raf = new RandomAccessFile(NodeConfigInfo.dataLogDir, "r");
+			raf = new RandomAccessFile("/data/raft/dataLog8881", "r");
 			long len = raf.length();
 			String lastLine = null;
 			if (len != 0L) {
 				long pos = len - 1;
 				while (pos > 0) {
 					pos--;
-					raf.seek(pos);  
-					if (raf.readByte() == '\n') {  
-						lastLine = raf.readLine();  
+					raf.seek(pos);
+					if (raf.readByte() == '\n') {
 						break;
 					}
 				}
+				if (pos == 0) {  
+					raf.seek(0);  
+				}
+				byte[] bytes = new byte[(int) (len - pos)];
+				raf.read(bytes);
+				lastLine = new String(bytes, "utf-8"); 
 			}
+			
 			if(StringUtils.isNotEmpty(lastLine)) {
 				Message message = JSON.parseObject(lastLine,Message.class);
 				nodeInfo.setDataIndex(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[4])));
 				nodeInfo.setTerm(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[3])));
+				System.out.println("当前节点状态="+JSON.toJSONString(nodeInfo));
 			}
+		}catch (Exception e) {
+			throw e;
+		}finally {
+			if(raf!=null) {
+				raf.close();
+			}
+		}
+	}
+	public static void main(String[] args) throws Exception {
+		RandomAccessFile raf = null;
+		try {
+			raf = new RandomAccessFile("/data/raft/dataLog8881", "r");
+			long len = raf.length();
+			String lastLine = null;
+			if (len != 0L) {
+				long pos = len - 1;
+				while (pos > 0) {
+					pos--;
+					raf.seek(pos);
+					if (raf.readByte() == '\n') {
+						break;
+					}
+				}
+				if (pos == 0) {  
+					raf.seek(0);  
+				}  
+				byte[] bytes = new byte[(int) (len - pos)];
+				raf.read(bytes);
+				lastLine = new String(bytes, "utf-8"); 
+			}
+			System.out.println(lastLine);
+			System.out.println(JSON.parseObject(lastLine, Message.class));
 		}catch (Exception e) {
 			throw e;
 		}finally {
@@ -166,12 +205,12 @@ public class NodeUtils {
 											// System.out.println(rf.readLine());
 											line = new String(rf.readLine().getBytes("ISO-8859-1"), "utf-8");
 										}
-										
+
 										Message data_msg = JSON.parseObject(line, Message.class);
-										
+
 										int my_term = Integer.parseInt(data_msg.getLeaderKey().split(":")[3]);
 										int my_dataIndex = Integer.parseInt(data_msg.getLeaderKey().split(":")[4]);
-										
+
 										if(my_term>=node_term && my_dataIndex>node_dataIndex) {
 											syncList.add(data_msg);
 										}else {
@@ -188,7 +227,7 @@ public class NodeUtils {
 										LOG.error("",e);
 									}
 								}
-								
+
 								for (int i = syncList.size(); i > 0; i--) {
 									Message msg_sync = syncList.get(i-1);
 									msg_sync.setMsgCode(MsgType.LEADER_SET_DATA);
