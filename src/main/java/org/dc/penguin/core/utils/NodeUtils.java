@@ -65,9 +65,10 @@ public class NodeUtils {
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
+						SocketConnection conn = null;
 						try {
 							SocketPool pool = SocketCilentUtils.getSocketPool(nodeInfo.getHost(), nodeInfo.getElectionServerPort());
-							SocketConnection conn = pool.getSocketConnection();
+							conn = pool.getSocketConnection();
 							Message msg = new Message();
 							msg.setValue(JSON.toJSONString(mynodeInfo).getBytes());
 							msg.setMsgCode(MsgType.LEADER_PING);
@@ -77,6 +78,10 @@ public class NodeUtils {
 							}
 						} catch (Exception e) {
 							LOG.error("",e);
+						}finally {
+							if(conn!=null) {
+								conn.close();
+							}
 						}
 					}
 				}).start();
@@ -185,7 +190,6 @@ public class NodeUtils {
 									
 									if(isOut && StringUtils.isNoneBlank(line)) {
 										Message data_msg = JSON.parseObject(line, Message.class);
-										System.out.println("data_msg="+data_msg);
 										int my_term = Integer.parseInt(data_msg.getLeaderKey().split(":")[3]);
 										int my_dataIndex = Integer.parseInt(data_msg.getLeaderKey().split(":")[4]);
 
