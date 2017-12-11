@@ -241,15 +241,20 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 							new Thread(new Runnable() {
 								@Override
 								public void run() {
+									SocketConnection conn = null;
 									try {
 										SocketPool pool = SocketCilentUtils.getSocketPool(node.getHost(), node.getDataServerPort());
-										SocketConnection conn = pool.getSocketConnection();
+										conn = pool.getSocketConnection();
 										Message ms = JSON.parseObject(conn.sendMessage(message.toJSONString()), Message.class);
 										if(ms.getMsgCode()==MsgType.SUCCESS) {
 											cdl.countDown();
 										}
 									} catch (Exception e) {
 										LOG.error("",e);
+									}finally {
+										if(conn!=null) {
+											conn.close();
+										}
 									}
 								}
 							}).start();

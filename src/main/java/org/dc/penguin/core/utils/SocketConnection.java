@@ -47,8 +47,6 @@ public class SocketConnection {
 		}catch (Exception e) {
 			this.destroy();
 			throw e;
-		}finally {
-			this.close();
 		}
 		return null;
 	}
