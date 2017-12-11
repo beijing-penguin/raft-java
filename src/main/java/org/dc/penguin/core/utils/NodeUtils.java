@@ -169,7 +169,7 @@ public class NodeUtils {
 	public static void logSync(NodeInfo mynodeInfo) {
 		try {
 			for (NodeInfo nodeInfo: NodeConfigInfo.getNodeConfigList()) {
-				if(nodeInfo.getHost().equals(mynodeInfo.getHost()) && mynodeInfo.getElectionServerPort() != nodeInfo.getElectionServerPort())
+				if(!nodeInfo.getHost().equals(mynodeInfo.getHost()) && mynodeInfo.getElectionServerPort() != nodeInfo.getElectionServerPort()) {
 					new Thread(new Runnable() {
 						@Override
 						public void run() {
@@ -242,6 +242,7 @@ public class NodeUtils {
 							}
 						}
 					}).start();
+				}
 			}
 		} catch (Exception e) {
 			LOG.error("",e);

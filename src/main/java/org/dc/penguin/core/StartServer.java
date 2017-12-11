@@ -350,11 +350,11 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) {
 		try {
 			Message message = JSON.parseObject(msg,Message.class);
-			NodeInfo reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
+			NodeInfo reqNode = null;
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
+				reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 				NodeUtils.initNodeInfo(nodeInfo);//确定该节点的最大统治能力
-				System.out.println("当前节点状态="+JSON.toJSONString(nodeInfo));
 				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>=nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
 				}
@@ -383,7 +383,7 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 						nodeInfo.setLeaderKey(reqNode.getLeaderKey());
 					}
 				}*/
-				
+				reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
 				for (NodeInfo node_config : NodeConfigInfo.getNodeConfigList()) {//更新本节点内存中leaderNode的信息。
 					if(node_config.getHost().equals(reqNode.getHost()) && node_config.getElectionServerPort() == reqNode.getElectionServerPort()) {
 						node_config.setRole(RoleType.LEADER);
