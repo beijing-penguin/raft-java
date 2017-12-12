@@ -219,6 +219,8 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 			ctx.channel().writeAndFlush(JSON.toJSONString(message)+"\n");*/
 				ctx.channel().writeAndFlush(message.toJSONString());
 				break;
+			case MsgType.LOG_SYNC:
+				break;
 			case MsgType.LEADER_SET_DATA:
 				Files.write(Paths.get(NodeConfigInfo.dataLogDir), (msg+"\n").getBytes(),StandardOpenOption.APPEND);
 				

@@ -194,6 +194,9 @@ public class NodeUtils {
 										int my_dataIndex = Integer.parseInt(data_msg.getLeaderKey().split(":")[4]);
 
 										if(my_term>=nodeOther_term && my_dataIndex>nodeOther_dataIndex) {
+											//
+											System.out.println(nextend);
+											Message newMsg = new Message();
 											syncList.add(data_msg);
 										}else {
 											break;
