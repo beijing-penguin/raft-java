@@ -77,7 +77,7 @@ public class NettyConnection{
 								break;
 							case MsgType.VOTE:
 								NodeInfo node = JSON.parseObject(resultMessage.getValue(), NodeInfo.class);
-								for (NodeInfo nodeInfo : NodeConfigInfo.getNodeConfigList()) {
+								for (NodeInfo nodeInfo : NodeConfigInfo.nodeVector) {
 									if(nodeInfo.getHost().equals(node.getHost()) && nodeInfo.getElectionServerPort() == node.getElectionServerPort()) {
 										nodeInfo.getVoteTotalNum().incrementAndGet();
 									}
