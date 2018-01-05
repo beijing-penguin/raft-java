@@ -65,6 +65,7 @@ public class StartServer {
 						}
 					});
 					queueMap.put(nodeInfo, queue);
+					//数据持久化队列监控
 					new Thread(new Runnable() {
 						@Override
 						public void run() {
