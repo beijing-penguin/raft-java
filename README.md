@@ -1,6 +1,7 @@
 # raft-java
-## ①如果出现leader节点由于网络问题，出现被孤立的情况，则该leader节点被client访问时，基于日志不能复制到其他超过半数的节点，自动降级为follower该被孤立的leader如果接受到来自其他leaderNode的ping，则根据数据索引大于该leaderIndex也自动降级为follower。。如果在网络波动期间该被孤立的leader马上又恢复正常，则在它发送leaderPing时，其他follower会感应到有两个leader同时给自己发送了leaderPing，则根据数据索引和任期号两个条件同时判定应该接受并认可的是哪位领导，如果索引和任期完全都一样，则leaderPing接受失败，不做处理，否则认可一位为真正的leader，另外一个leader也会在接受到leaderPing后自动降级为follower
-## ②当raft集群leader由于内部网络波动问题，连不上follower期间，follower自动检测并发起选举，主动发起选举的节点不接受来自client或者leader任何数据请求，即不保存任何数据，也不会做出任何相应，直到选举结束，或者收到来自其他leader的leaderPing
-## ③本raft-java项目相对于raft论文，代码实现时略有改动，暂时没用到候选人角色，转而采用其他可理解的变量作为集群选举协议等相关操作的控制。
+## ①raft选举根据投票超过半数以上才能成功，则能保证集群中始终在一任期中只会存在一位领导
+## ②raft日志复制中，数据存储和日志同步，可以用保存在同一个数据库（如嵌入式H2数据库）中，日后便可以压缩日志，来提高数据库查询性能，和日志sync也不会受到影响，因为在数据持久化时，存储下来的数据dataIndex严格递增。数据压缩后，则也能知道数据被压缩到的位置。
+## ③本raft-java项目相对于raft论文，代码实现时略有改动，暂时没用到候选人角色
 ##
 ## ④程序使用说明，配置好config.properties，启动StartServer.java即可。
+## ⑤raft动画图解  http://thesecretlivesofdata.com/raft/
