@@ -185,7 +185,9 @@ public class RaftUtils {
 	}
 
 	public static void dataSync(NodeInfo leaderNode, NodeInfo node) {
-		
+		//1.获取领导dataIndex
+		//2.批量同步数据
+		//return true;
 	}
 
 	public static boolean dataSave(MessageQueue msgQue) throws Exception {

@@ -65,6 +65,8 @@ public class StartServer {
 						}
 					});
 					queueMap.put(nodeInfo, queue);
+					Message msg_fail_back = new Message();
+					msg_fail_back.setMsgCode(MsgType.FAIL);
 					//数据持久化队列监控
 					new Thread(new Runnable() {
 						@Override
@@ -73,8 +75,6 @@ public class StartServer {
 								MessageQueue msgQue = queue.poll();
 								try {
 									if(msgQue!=null) {
-										Message msg_fail_back = new Message();
-										msg_fail_back.setMsgCode(MsgType.FAIL);
 										if(!RaftUtils.dataSave(msgQue)) {
 											if(nodeInfo.getRole()==RoleType.LEADER) {
 												nodeInfo.setRole(RoleType.FOLLOWER);
@@ -96,8 +96,6 @@ public class StartServer {
 										}
 									}
 								}catch (Exception e) {
-									Message msg_fail_back = new Message();
-									msg_fail_back.setMsgCode(MsgType.FAIL);
 									msgQue.getHandlerContext().channel().writeAndFlush(msg_fail_back.toJSONString());
 									LOG.error("",e);
 								}
@@ -492,8 +490,4 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 		LOG.info("链接异常中断:"+cause.getStackTrace());
 		ctx.close();
 	}
-	/*public static void main(String[] args) throws Exception {
-		ConfigManager.getInstance().loadProps("config.properties");
-		Files.write(Paths.get(ConfigManager.getInstance().get("config.properties", "dataLogDir")), "段感受到asd".getBytes(),StandardOpenOption.APPEND);
-	}*/
 }
