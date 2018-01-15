@@ -103,7 +103,7 @@ public class NodeUtils {
 	public static void main(String[] args) throws Exception {
 
 	}
-	public static void logSync(NodeInfo leaderNode) {
+	/*public static void logSync(NodeInfo leaderNode) {
 		for (NodeInfo nodeInfo: NodeConfigInfo.nodeVector) {
 			if(!nodeInfo.getHost().equals(leaderNode.getHost()) || (nodeInfo.getHost().equals(leaderNode.getHost()) && nodeInfo.getDataServerPort()!=leaderNode.getDataServerPort())) {
 				new Thread(new Runnable() {
@@ -146,5 +146,5 @@ public class NodeUtils {
 				}).start();
 			}
 		}
-	}
+	}*/
 }

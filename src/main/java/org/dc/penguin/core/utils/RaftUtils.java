@@ -106,9 +106,6 @@ public class RaftUtils {
 	public static int getTerm(String leaderKey) {
 		return Integer.parseInt(leaderKey.split(":")[3]);
 	}
-	public static Long getDataIndex(String leaderKey) {
-		return Long.parseLong(leaderKey.split(":")[4]);
-	}
 	
 	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
 		DBHelper dbHelper = RaftUtils.getDBHelper(nodeInfo.getHost(),nodeInfo.getDataServerPort());
@@ -184,9 +181,15 @@ public class RaftUtils {
 		return null;
 	}
 
-	public static void dataSync(NodeInfo leaderNode, NodeInfo node) {
+	public static void dataSync(NodeInfo leaderNode, NodeInfo node) throws Exception {
 		//1.获取领导dataIndex
+		Message msg = new Message();
+		msg.setMsgCode(MsgType.GET_LEADER_LAST_DATAINDEX_POS);
+		Message mm = RaftUtils.sendMessage(leaderNode.getHost(), leaderNode.getElectionServerPort(), msg.toJSONString());
+		AtomicLong leaderIndex = new AtomicLong(Long.parseLong(new String(mm.getValue())));
 		//2.批量同步数据
+		
+		
 		//return true;
 	}
 

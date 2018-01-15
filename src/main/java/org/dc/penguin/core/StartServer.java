@@ -168,7 +168,7 @@ public class StartServer {
 												LOG.info("选举成功...");
 												//开始日志同步
 												//根据dataIndex同步数据到follower
-												NodeUtils.logSync(nodeInfo);
+												//RaftUtils.logSync(nodeInfo);
 
 												nodeInfo.setRole(RoleType.LEADER);
 												nodeInfo.getTerm().incrementAndGet();
@@ -261,8 +261,6 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 				ctx.channel().writeAndFlush(message.toJSONString());
 				break;
 			case MsgType.LOG_SYNC:
-				break;
-			case MsgType.GET_DATA_POS:
 				break;
 			case MsgType.LEADER_SET_DATA:
 				try {
@@ -453,13 +451,6 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 
 				message.setMsgCode(MsgType.SUCCESS);
 				ctx.channel().writeAndFlush(message.toJSONString());
-				break;
-			case MsgType.GET_DATAINDEX_POS:
-				RaftUtils.initNodeInfo(nodeInfo);
-				Message msg_back = new Message();
-				msg_back.setMsgCode(MsgType.SUCCESS);
-				msg_back.setDataIndex(nodeInfo.getDataIndex().longValue());
-				ctx.channel().writeAndFlush(msg_back.toJSONString());
 				break;
 			default:
 				break;
