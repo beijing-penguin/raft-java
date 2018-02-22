@@ -197,7 +197,7 @@ public class RaftUtils {
 		DBHelper dbHelper = RaftUtils.getDBHelper(msgQue.getNodeInfo().getHost(), msgQue.getNodeInfo().getDataServerPort());
 		Long  max_dataIndex = dbHelper.selectOne("select CAST(IFNULL(max(data_index),0) as bigInt) from RAFT_TABLE",Long.class);
 		if(max_dataIndex.longValue()==msgQue.getMessage().getDataIndex().longValue()-1) {
-			dbHelper.insertEntity(msgQue);//插入本地
+			dbHelper.insertEntity(msgQue.getNodeInfo());//插入本地
 			Message msg_succ = new Message();
 			msg_succ.setMsgCode(MsgType.SUCCESS);
 			msgQue.getHandlerContext().channel().writeAndFlush(msg_succ.toJSONString());
