@@ -24,8 +24,23 @@ public class Test {
 		ms.setMsgCode(MsgType.CLIENT_SET_DATA);
 		ms.setValue("asd".getBytes());
 		System.out.println(JSON.toJSONString(conn.sendMessage(ms.toJSONString())));*/
-		String s = "非非非";
+		/*String s = "非非非";
         String gbkStr = new String(s.getBytes("gbk"), "gbk");
-        System.out.println(gbkStr);
+        System.out.println(gbkStr);*/
+		//2a+7b+12c+24d+23e=123442
+		int ev = 123;
+		for(int d=0;d<=ev;d+=24) {
+			for(int e=0;e<=ev-d;e+=23) {
+				for (int c=0;c<=ev-d-e;c+=12) {
+					for (int b=0;b<=ev-d-e-c;b+=7) {
+						int remain = ev-b-c-d-e;
+						if(remain%2==0) {
+							int a = remain/2;
+							System.out.format("a:%d,b:%d,c:%d,d:%d,e:%d%n",a,b/7,c/12,d/24,e/23);
+						}
+					}
+				}
+			}
+		}
 	}
 }
