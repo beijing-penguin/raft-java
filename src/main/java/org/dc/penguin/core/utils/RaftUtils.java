@@ -39,9 +39,9 @@ public class RaftUtils {
 		InetAddress ip = null;  
 		while (netInterfaces.hasMoreElements()) {  
 			NetworkInterface ni = (NetworkInterface) netInterfaces.nextElement();  
-			Enumeration<InetAddress> nii = ni.getInetAddresses();  
-			while (nii.hasMoreElements()) {  
-				ip = (InetAddress) nii.nextElement();  
+			Enumeration<InetAddress> ni_enum = ni.getInetAddresses();  
+			while (ni_enum.hasMoreElements()) {  
+				ip = (InetAddress) ni_enum.nextElement();
 				if (ip.getHostAddress().indexOf(":") == -1) {  
 					ipSet.add(ip.getHostAddress());
 				}  
@@ -120,41 +120,6 @@ public class RaftUtils {
 				nodeInfo.setTerm(new AtomicInteger(msgData.getTerm()));
 			}
 		}
-		/*RandomAccessFile raf = null;
-		try {
-			raf = new RandomAccessFile(NodeConfigInfo.dataLogDir, "r");
-			long len = raf.length();
-			String lastLine = null;
-			if (len != 0L) {
-				long pos = len - 1;
-				while (pos > 0) {
-					pos--;
-					raf.seek(pos);
-					if (raf.readByte() == '\n') {
-						break;
-					}
-				}
-				if (pos == 0) {  
-					raf.seek(0);  
-				}
-				byte[] bytes = new byte[(int) (len - pos)];
-				raf.read(bytes);
-				lastLine = new String(bytes, "utf-8"); 
-			}
-
-			if(StringUtils.isNotEmpty(lastLine)) {
-				Message message = JSON.parseObject(lastLine,Message.class);
-				nodeInfo.setDataIndex(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[4])));
-				nodeInfo.setTerm(new AtomicInteger(Integer.parseInt(message.getLeaderKey().split(":")[3])));
-				System.out.println("当前节点状态="+JSON.toJSONString(nodeInfo));
-			}
-		}catch (Exception e) {
-			throw e;
-		}finally {
-			if(raf!=null) {
-				raf.close();
-			}
-		}*/
 	}
 
 	public static Message sendMessage(String host,int port,String data) throws Exception {
