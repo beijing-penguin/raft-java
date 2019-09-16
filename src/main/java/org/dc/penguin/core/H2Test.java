@@ -1,21 +1,21 @@
 package org.dc.penguin.core;
 
 
-import org.dc.jdbc.core.DBHelper;
+import org.dc.jdbc.core.DbHelper;
 import org.dc.penguin.core.pojo.Message;
 
 import com.alibaba.druid.pool.DruidDataSource;
 import com.alibaba.fastjson.JSON;
 
 public class H2Test {
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Throwable {
 		/*Server server = Server.createTcpServer("-tcpPort", "9123", "-tcpAllowOthers").start();
 		System.out.println(server.getPort());*/
 		
 		DruidDataSource dataSource  =new DruidDataSource();
 		dataSource.setUrl("jdbc:h2:file:./data/raft/raftdb_8881;AUTO_SERVER=TRUE");
 		
-		DBHelper dbHelper = new DBHelper(dataSource);
+		DbHelper dbHelper = new DbHelper(dataSource);
 		//dbHelper.excuteSQL("create table RAFT_TABLE(id bigInt UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,key varchar(1000),value BLOB,data_index bigInt,term int)");
 		//dbHelper.excuteSQL("DROP TABLE RAFT_TABLE");
 		dbHelper.insert("insert into RAFT_TABLE(key,value,data_index,term) values('dc',null,5,1)");

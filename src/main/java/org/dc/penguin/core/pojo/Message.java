@@ -1,10 +1,7 @@
 package org.dc.penguin.core.pojo;
 
-import org.dc.jdbc.core.pojo.Table;
-
 import com.alibaba.fastjson.JSON;
 
-@Table(name="RAFT_TABLE")
 public class Message {
 	private Long id;
 	private int msgCode;

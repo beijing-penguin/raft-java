@@ -15,7 +15,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.dc.jdbc.core.ConnectionManager;
-import org.dc.jdbc.core.DBHelper;
+import org.dc.jdbc.core.DbHelper;
 import org.dc.penguin.core.NodeConfigInfo;
 import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MessageQueue;
@@ -72,10 +72,10 @@ public class RaftUtils {
 		}
 		return pool;
 	}
-	private static Map<String,DBHelper> dbHelperMap = new ConcurrentHashMap<String,DBHelper>();
-	public static DBHelper getDBHelper(String host , int port) {
+	private static Map<String,DbHelper> dbHelperMap = new ConcurrentHashMap<String,DbHelper>();
+	public static DbHelper getDBHelper(String host , int port) {
 		String key = host+":"+port;
-		DBHelper dbHelper = dbHelperMap.get(key);
+		DbHelper dbHelper = dbHelperMap.get(key);
 		if(dbHelper==null) {
 			lock.lock();
 			dbHelper = dbHelperMap.get(key);
@@ -92,7 +92,7 @@ public class RaftUtils {
 				dataSource.setTestOnBorrow(true);
 				dataSource.setTestWhileIdle(true);
 				dataSource.setPoolPreparedStatements(false);
-				dbHelper = new DBHelper(dataSource);
+				dbHelper = new DbHelper(dataSource);
 				dbHelperMap.put(key, dbHelper);
 			}
 			lock.unlock();
@@ -107,12 +107,12 @@ public class RaftUtils {
 		return Integer.parseInt(leaderKey.split(":")[3]);
 	}
 	
-	public static void initNodeInfo(NodeInfo nodeInfo) throws Exception {
-		DBHelper dbHelper = RaftUtils.getDBHelper(nodeInfo.getHost(),nodeInfo.getDataServerPort());
+	public static void initNodeInfo(NodeInfo nodeInfo) throws Throwable {
+		DbHelper dbHelper = RaftUtils.getDBHelper(nodeInfo.getHost(),nodeInfo.getDataServerPort());
 		ConnectionManager.setReadOnly(true);//设置数据库查询只读事务
 		Map<String, Object> rt_map = dbHelper.selectOne("select table_name from INFORMATION_SCHEMA.TABLES where table_name = 'RAFT_TABLE'");
 		if(rt_map==null) {
-			dbHelper.excuteSQL("create table RAFT_TABLE(id bigInt PRIMARY KEY,key varchar(1000),value BLOB,data_index bigInt,term int)");
+			dbHelper.excuteSql("create table RAFT_TABLE(id bigInt PRIMARY KEY,key varchar(1000),value BLOB,data_index bigInt,term int)");
 		}else {
 			Message msgData = dbHelper.selectOne("select * from RAFT_TABLE order by data_index desc limit 1",Message.class);
 			if(msgData!=null) {
@@ -158,8 +158,8 @@ public class RaftUtils {
 		//return true;
 	}
 
-	public static boolean dataSave(MessageQueue msgQue) throws Exception {
-		DBHelper dbHelper = RaftUtils.getDBHelper(msgQue.getNodeInfo().getHost(), msgQue.getNodeInfo().getDataServerPort());
+	public static boolean dataSave(MessageQueue msgQue) throws Throwable {
+		DbHelper dbHelper = RaftUtils.getDBHelper(msgQue.getNodeInfo().getHost(), msgQue.getNodeInfo().getDataServerPort());
 		Long  max_dataIndex = dbHelper.selectOne("select CAST(IFNULL(max(data_index),0) as bigInt) from RAFT_TABLE",Long.class);
 		if(max_dataIndex.longValue()==msgQue.getMessage().getDataIndex().longValue()-1) {
 			dbHelper.insertEntity(msgQue.getNodeInfo());//插入本地

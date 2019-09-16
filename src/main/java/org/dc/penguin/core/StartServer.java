@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.dc.jdbc.core.DBHelper;
+import org.dc.jdbc.core.DbHelper;
 import org.dc.penguin.core.pojo.Message;
 import org.dc.penguin.core.pojo.MessageQueue;
 import org.dc.penguin.core.pojo.MsgType;
@@ -18,7 +18,9 @@ import org.dc.penguin.core.pojo.RoleType;
 import org.dc.penguin.core.raft.NodeInfo;
 import org.dc.penguin.core.utils.NodeUtils;
 import org.dc.penguin.core.utils.RaftUtils;
+
 import com.alibaba.fastjson.JSON;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -40,7 +42,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 public class StartServer {
 	public static Map<NodeInfo,PriorityQueue<MessageQueue>> queueMap = new HashMap<NodeInfo,PriorityQueue<MessageQueue>>();
 	private static Log LOG = LogFactory.getLog(StartServer.class);
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) throws Throwable {
 		NodeConfigInfo.initConfig();
 		for (NodeInfo nodeInfo: NodeConfigInfo.nodeVector) {
 			if(nodeInfo.isLocalhost()) {
@@ -95,7 +97,7 @@ public class StartServer {
 											}
 										}
 									}
-								}catch (Exception e) {
+								}catch (Throwable e) {
 									msgQue.getHandlerContext().channel().writeAndFlush(msg_fail_back.toJSONString());
 									LOG.error("",e);
 								}
@@ -184,7 +186,7 @@ public class StartServer {
 										}
 									}
 
-								} catch (Exception e) {
+								} catch (Throwable e) {
 									LOG.error("",e);
 								}
 							}
@@ -264,7 +266,7 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 				break;
 			case MsgType.LEADER_SET_DATA:
 				try {
-					DBHelper dbHelper = RaftUtils.getDBHelper(nodeInfo.getHost(), nodeInfo.getDataServerPort());
+					DbHelper dbHelper = RaftUtils.getDBHelper(nodeInfo.getHost(), nodeInfo.getDataServerPort());
 					Long dataIndex = dbHelper.selectOne("select max(data_index) from RAFT_TABLE", Long.class);
 					if(dataIndex==null) {
 						dataIndex=0L;
@@ -280,9 +282,8 @@ class DataServerHandler extends SimpleChannelInboundHandler<String> {
 						msss.setMsgCode(MsgType.FAIL);
 						ctx.channel().writeAndFlush(msss.toJSONString());
 					}
-				}catch (Exception e) {
+				}catch (Throwable e) {
 					LOG.error("",e);
-					throw e;
 				}
 				break;
 			case MsgType.SET_DATA:
@@ -410,7 +411,11 @@ class ElectionServerHandler extends SimpleChannelInboundHandler<String> {
 			switch (message.getMsgCode()) {
 			case MsgType.VOTE:
 				reqNode = JSON.parseObject(message.getValue(), NodeInfo.class);
-				RaftUtils.initNodeInfo(nodeInfo);//确定该节点的最大统治能力
+				try {
+					RaftUtils.initNodeInfo(nodeInfo);
+				} catch (Throwable e) {
+					e.printStackTrace();
+				}//确定该节点的最大统治能力
 				LOG.info("node="+JSON.toJSONString(nodeInfo));
 				if(nodeInfo.getRole()!=RoleType.LEADER && reqNode.getTerm().get()>=nodeInfo.getTerm().get() && reqNode.getDataIndex().get()>=nodeInfo.getDataIndex().get() && nodeInfo.getHaveVoteNum().incrementAndGet()==2) {
 					ctx.channel().writeAndFlush(message.toJSONString());
